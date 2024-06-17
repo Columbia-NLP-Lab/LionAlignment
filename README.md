@@ -1,1 +1,1 @@
-# LION LLM Alignment
+# Lion LLM Alignment
