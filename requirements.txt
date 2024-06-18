@@ -1,0 +1,6 @@
+torch>=2.1.2
+datasets
+wandb
+transformers
+tqdm
+colorlog
