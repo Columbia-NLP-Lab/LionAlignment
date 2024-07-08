@@ -196,8 +196,6 @@ class PrecomputeDPOTrainer(Trainer):
         self.tokenizer = tokenizer
 
         self.beta = args.beta
-        self.ref_update_steps = args.ref_update_steps
-        self.num_ref_updates = 0
         self.label_smoothing = args.label_smoothing
         self.loss_type = args.loss_type
 

@@ -72,3 +72,4 @@ def get_tokenizer(
         tokenizer.chat_template = DEFAULT_CHAT_TEMPLATE
 
     return tokenizer
+

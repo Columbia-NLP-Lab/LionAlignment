@@ -53,8 +53,7 @@ class DPOConfig(TrainingArguments):
     max_length: Optional[int] = None
     max_prompt_length: Optional[int] = None
     dataset_num_proc: Optional[int] = None
-    ref_update_steps: Optional[int] = -1
     use_fast_model: Optional[bool] = True
     mask_embed_grad: Optional[bool] = True
     shuffle_train_dataloader: Optional[bool] = True
-    precompute_save_name: Optional[str] = "data"
+    dataset_cache_dir: Optional[str] = "dataset_cache"

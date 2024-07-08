@@ -11,21 +11,23 @@ import sys
 import tqdm
 
 import datasets
+from accelerate.state import PartialState
 import torch
 import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import set_seed
-from accelerate.state import PartialState
 from datasets import concatenate_datasets
 
 from lionalign.arguments import H4ArgumentParser, ModelArguments, DataArguments
 from lionalign.trainer.sft_trainer import SFTTrainer
 from lionalign.trainer.sft_config import SFTConfig
 from lionalign.data.sft_data_processor import SFTDatasetProcessor
-from lionalign.data.utils import get_datasets, apply_chat_template
+from lionalign.data.utils import get_datasets, apply_chat_template, get_dataset_cache_hash
 from lionalign.model_utils import get_peft_config, get_checkpoint, get_tokenizer
 
 logger = logging.getLogger(__name__)
+
+
 
 
 def main():
@@ -75,6 +77,24 @@ def main():
     ###############
     # Load datasets
     ###############
+    def process_chat_template(datasets):
+        remove_column_names = list(datasets.features)
+        if "dataset_mix_source" in remove_column_names:
+            remove_column_names.remove("dataset_mix_source")
+    
+        datasets = datasets.map(
+            apply_chat_template,
+            fn_kwargs={
+                "tokenizer": tokenizer,
+                "task": "sft",
+                "auto_insert_empty_system_msg": data_args.auto_insert_empty_system_msg,
+            },
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=remove_column_names,
+            desc="Applying chat template",
+        )
+        return datasets
+    
     data_processor = SFTDatasetProcessor(
         tokenizer=tokenizer,
         assistant_bos=training_args.assistant_bos,
@@ -86,40 +106,74 @@ def main():
     )
 
     with PartialState().local_main_process_first():
-        training_args.dataset_cache_dir = os.path.join(training_args.output_dir, training_args.dataset_cache_dir)
         os.makedirs(training_args.dataset_cache_dir, exist_ok=True)
 
-        def process_chat_template(datasets):
-            remove_column_names = list(datasets.features)
-            if "dataset_mix_source" in remove_column_names:
-                remove_column_names.remove("dataset_mix_source")
-        
-            datasets = datasets.map(
-                apply_chat_template,
-                fn_kwargs={
-                    "tokenizer": tokenizer,
-                    "task": "sft",
-                    "auto_insert_empty_system_msg": data_args.auto_insert_empty_system_msg,
-                },
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=remove_column_names,
-                desc="Applying chat template",
-            )
-            return datasets
-
-        if hash(data_args.train_dataset_mixer) == hash(data_args.eval_dataset_mixer):
-            pass
-
-        train_dataset = get_datasets(
+        # compute the hash of the train dataset
+        train_dataset_cache_hash = get_dataset_cache_hash(
             data_args.train_dataset_mixer,
             data_args.train_dataset_split,
-            columns_to_keep=["messages", "dataset_mix_source"],
-            dedup_key="messages",
-            shuffle=training_args.shuffle_train_dataloader,
-            process_fn=process_chat_template,
-            seed=training_args.seed,
-            num_proc=data_args.preprocessing_num_workers,
+            data_args.chat_template,
+            data_args.auto_insert_empty_system_msg,
+            training_args.shuffle_train_dataloader,
+            training_args.seed
         )
+        train_dataset_cache_path = os.path.join(training_args.dataset_cache_dir, train_dataset_cache_hash)
+
+        # Load train dataset from cache if it exists
+        if os.path.exists(train_dataset_cache_path):
+            logger.info(f"Loading dataset from cache {train_dataset_cache_path}")
+            train_dataset = datasets.load_from_disk(train_dataset_cache_path)
+            
+            if training_args.num_train_epochs > 1:
+                logger.info(f"Loading dataset from cache {train_dataset_cache_path} and setting num_train_epochs to 1")
+                training_args.num_train_epochs = 1
+        else:
+            train_dataset = get_datasets(
+                data_args.train_dataset_mixer,
+                data_args.train_dataset_split,
+                columns_to_keep=["messages", "dataset_mix_source"],
+                dedup_key="messages",
+                shuffle=training_args.shuffle_train_dataloader,
+                process_fn=process_chat_template,
+                seed=training_args.seed,
+                num_proc=data_args.preprocessing_num_workers,
+                shuffle=training_args.shuffle_train_dataloader,
+
+            )
+
+            ##########################
+            # Print dataset statistics
+            ##########################
+            if training_args.local_rank in [-1, 0]:
+                dataset_names = set(train_dataset["dataset_mix_source"])
+                dataset_numbers = {dataset_name: 0 for dataset_name in dataset_names}
+
+                for item in tqdm.tqdm(train_dataset, desc="Counting dataset examples"):
+                    dataset_numbers[item["dataset_mix_source"]] += 1
+
+                # print percentage of different sources and number of examples
+                total = len(train_dataset)
+                print(f"Total number of examples: {total}")
+                for dataset_name in dataset_numbers:
+                    dataset_number = dataset_numbers[dataset_name]
+                    dataset_percentage = dataset_number / total * 100
+                    print(f'"{dataset_name}": {dataset_number} examples, {dataset_percentage:.2f}%')
+
+            # Repeat the training dataset if num_train_epochs > 1
+            if training_args.num_train_epochs > 1:
+                train_dataset = concatenate_datasets([train_dataset for _ in range(training_args.num_train_epochs)])
+                if training_args.shuffle_train_dataloader:
+                    train_dataset = train_dataset.shuffle(seed=training_args.seed)
+                training_args.num_train_epochs = 1
+
+            train_dataset = data_processor(train_dataset)
+            logger.info(f"Train dataset processed. Number of samples: {len(train_dataset)}")
+
+            if training_args.local_rank in [-1, 0]:
+                logger.info(f"Saving dataset to cache {train_dataset_cache_path}")
+                train_dataset.save_to_disk(train_dataset_cache_path)
+
+        # Load eval dataset
         eval_dataset = None
         if data_args.eval_dataset_mixer is not None:
             eval_dataset = get_datasets(
@@ -133,35 +187,7 @@ def main():
                 num_proc=data_args.preprocessing_num_workers,
             )
         
-        ##########################
-        # Print dataset statistics
-        ##########################
-        if training_args.local_rank in [-1, 0]:
-            dataset_names = set(train_dataset["dataset_mix_source"])
-            dataset_numbers = {dataset_name: 0 for dataset_name in dataset_names}
-
-            for item in tqdm.tqdm(train_dataset, desc="Counting dataset examples"):
-                dataset_numbers[item["dataset_mix_source"]] += 1
-
-            # print percentage of different sources and number of examples
-            total = len(train_dataset)
-            print(f"Total number of examples: {total}")
-            for dataset_name in dataset_numbers:
-                dataset_number = dataset_numbers[dataset_name]
-                dataset_percentage = dataset_number / total * 100
-                print(f'"{dataset_name}": {dataset_number} examples, {dataset_percentage:.2f}%')
-
-        # Repeat the training dataset if num_train_epochs > 1
-        if training_args.num_train_epochs > 1:
-            train_dataset = concatenate_datasets([train_dataset for _ in range(training_args.num_train_epochs)])
-            if training_args.shuffle_train_dataloader:
-                train_dataset = train_dataset.shuffle(seed=training_args.seed)
-            training_args.num_train_epochs = 1
-
-        logger.info(f"Train dataset processed. Number of samples: {len(train_dataset)}")
-        
         logger.info(f"Process datasets")
-        train_dataset = data_processor(train_dataset)
         eval_dataset = data_processor(eval_dataset) if eval_dataset is not None else None
 
     #######################

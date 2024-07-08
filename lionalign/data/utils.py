@@ -9,6 +9,9 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 
+import hashlib
+import pickle
+
 from datasets import (
     Dataset,
     DatasetDict,
@@ -439,3 +442,44 @@ def pad_to_length(
             ],
             dim=dim,
         )
+
+
+def hash_obj(obj, length=16):
+    # Serialize the dictionary to a bytes-like object
+    dict_bytes = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Create a SHA-256 hash object
+    hash_obj = hashlib.sha256()
+
+    # Update the hash object with the serialized bytes
+    hash_obj.update(dict_bytes)
+
+    # Get the hexadecimal digest of the hash
+    hex_digest = hash_obj.hexdigest()
+
+    # Truncate the hex digest to the specified length
+    truncated_hex_digest = str(hex_digest[:length])
+
+    return truncated_hex_digest
+
+
+def get_dataset_cache_hash(
+    dataset_mixer,
+    dataset_split,
+    chat_template,
+    auto_insert_empty_system_msg: bool = True,
+    shuffle: bool = True,
+    seed: Optional[int] = None,
+    **kwargs,
+):
+    params = {
+        "dataset_mixer": dataset_mixer,
+        "dataset_split": dataset_split,
+        "chat_template": chat_template,
+        "auto_insert_empty_system_msg": auto_insert_empty_system_msg,
+        "shuffle": shuffle,
+        "seed": seed,
+    }
+    params.update(kwargs)
+
+    return hash_obj(params)

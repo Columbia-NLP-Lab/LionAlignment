@@ -1,0 +1,50 @@
+# Model arguments
+model_name_or_path: outputs/llama3_8b_lion_sft_pre_dpo_v0.1_bsz32_lr2e-5
+model_revision: main
+torch_dtype: bfloat16
+
+# Data training arguments
+train_dataset_mixer:
+  when2rl/distilabel-capybara-dpo-7k-binarized_reformatted: 1.0
+  when2rl/distilabel-intel-orca-dpo-pairs_cleaned_reformatted: 1.0
+  Columbia-NLP/UltraFeedback_binarized_cleaned_annotated: 1.0
+  when2rl/py-dpo-v0.1_reformatted: 1.0
+  when2rl/HelpSteer_reformatted: 1.0
+  when2rl/Nectar_reformatted: 1.0
+  when2rl/PKU-SafeRLHF_reformatted_filtered: 0.1  # include 10k examples to balance ratio
+train_dataset_split: train
+
+preprocessing_num_workers: 64
+shuffle_train_dataloader: true
+use_fast_model: true
+dataset_cache_dir: dataset_cache
+
+# DPOTrainer arguments
+beta: 0.01
+learning_rate: 3.0e-7
+bf16: true
+tf32: true
+do_eval: false
+evaluation_strategy: "no"
+eval_steps: 100
+gradient_accumulation_steps: 8
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: False
+log_level: info
+logging_steps: 5
+lr_scheduler_type: cosine
+max_length: 2048
+max_prompt_length: 1024
+num_train_epochs: 1
+optim: adamw_torch
+output_dir: outputs/llama3_8b_lion_dpo_v0.1_1epoch_bsz128_beta0.01_lr3e-7
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 4
+report_to:
+- none
+save_strategy: "steps"
+save_steps: 100
+save_total_limit: 2
+seed: 27
+warmup_ratio: 0.1
