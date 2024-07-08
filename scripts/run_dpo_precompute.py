@@ -357,7 +357,7 @@ def main():
     # Shard the train dataset
     world_size = training_args.world_size
     rank = training_args.local_rank if training_args.local_rank != -1 else 0
-        
+    
     
     train_dataset.name = "Train"
 
