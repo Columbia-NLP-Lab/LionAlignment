@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-Use `full_requirements.txt` to install all dependencies.
+Use `requirements.txt` to install all dependencies.
 
 Afterwards, run `export PYTHONPATH=$(pwd)` so all the relative imports would work.
 
