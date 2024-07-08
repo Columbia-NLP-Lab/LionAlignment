@@ -8,9 +8,12 @@ We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our model
 
 ### Gemma Models
 
+<!---
 - [LION-Gemma-2b-sft-v1.0](https://huggingface.co/Columbia-NLP/LION-Gemma-2b-sft-v1.0)
 - [LION-Gemma-2b-dpo-v1.0](https://huggingface.co/Columbia-NLP/LION-Gemma-2b-dpo-v1.0)
 - [LION-Gemma-2b-odpo-v1.0](https://huggingface.co/Columbia-NLP/LION-Gemma-2b-odpo-v1.0)
+--->
+
 
 | Model | Method | Size | Arena-Hard | AlpacaEval-2 | MT-Bench | OpenLLM |
 |-------------|--------|------|------:|------:|---------:|-------:|
@@ -25,9 +28,11 @@ We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our model
 
 ### LLaMA Models
 
+<!---
 - [LION-LLaMA-3-8b-sft-v1.0](https://huggingface.co/Columbia-NLP/LION-LLaMA-3-8b-sft-v1.0)
 - [LION-LLaMA-3-8b-dpo-v1.0](https://huggingface.co/Columbia-NLP/LION-LLaMA-3-8b-dpo-v1.0)
 - [LION-LLaMA-3-8b-odpo-v1.0](https://huggingface.co/Columbia-NLP/LION-LLaMA-3-8b-odpo-v1.0)
+--->
 
 | Model | Method | Size | Arena-Hard | AlpacaEval-2 | MT-Bench | OpenLLM |
 |-------------|--------|------|------:|------:|---------:|-------:|
