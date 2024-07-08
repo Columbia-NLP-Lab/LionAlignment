@@ -1,5 +1,7 @@
 # Evaluation
 
+We provide easy evaluation pipeline for benchmarks such as MT-Bench, Alpaca Eval 2.0, and Arena Hard. It will automatically start a sglang server to speed up the inference.
+
 ## Dependencies
 
 Use `requirements.txt` to install all dependencies.
