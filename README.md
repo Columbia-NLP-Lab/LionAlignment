@@ -1,4 +1,5 @@
-![lions](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0zHcP2vf_SQ8HgxLp9VaWBGdNaoViPcnyHQ&s){:style="float: right;margin-right: 7px;margin-top: 7px;"}
+<img align="left" width="80" height="80" src="[https://raw.githubusercontent.com/akarsh/akarsh-seggemu-resume/master/akarsh%20seggemu%20resume/Assets/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60%403x.png" alt="Resume application project app icon]()">
+
 # LIONs Alignment
 
 The LION-series are trained using an **empirically optimized pipeline** that consists of three stages: SFT, DPO, and online preference learning (online DPO). We find simple techniques such as sequence packing, loss masking in SFT, increasing the preference dataset size in DPO, and online DPO training can significantly improve the performance of language models. Our best models (the LION-series) **exceed the performance of the official instruct models** tuned with closed-source data and algorithms.
