@@ -5,11 +5,11 @@
 
 The LION-series are trained using an **empirically optimized pipeline** that consists of three stages: SFT, DPO, and online preference learning (online DPO). We find simple techniques such as sequence packing, loss masking in SFT, increasing the preference dataset size in DPO, and online DPO training can significantly improve the performance of language models. Our best models (the LION-series) **exceed the performance of the official instruct models** tuned with closed-source data and algorithms.
 
-## Model Releases
+## 📦 Model Releases
 
 We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our models and intermediate checkpoints for reproducibility.
 
-### Gemma Models
+### 💎 Gemma Models
 
 <!---
 - [LION-Gemma-2b-sft-v1.0](https://huggingface.co/Columbia-NLP/LION-Gemma-2b-sft-v1.0)
@@ -29,7 +29,7 @@ We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our model
 |[LION-Gemma-2b-dpo-v1.0 (ours)](https://huggingface.co/Columbia-NLP/LION-Gemma-2b-dpo-v1.0) | SFT+DPO | 2B | 4.6 | 8.75 | 6.58 | 55.35 |
 |[LION-Gemma-2b-odpo-v1.0 (ours)](https://huggingface.co/Columbia-NLP/LION-Gemma-2b-odpo-v1.0) | SFT+DPO+ODPO | 2B | 5.0 | 9.57 | 6.75 | 55.98 |
 
-### LLaMA Models
+### 🦙 LLaMA Models
 
 <!---
 - [LION-LLaMA-3-8b-sft-v1.0](https://huggingface.co/Columbia-NLP/LION-LLaMA-3-8b-sft-v1.0)
@@ -46,7 +46,7 @@ We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our model
 |[LION-LLaMA-3-8b-odpo-v1.0 (ours)](https://huggingface.co/Columbia-NLP/LION-LLaMA-3-8b-odpo-v1.0) | SFT+DPO+ODPO | 8B | 22.0 | 26.8 | 8.19 | 71.41 |
 
 
-## Installation
+## 📥 Installation
 
 To install the required dependencies, run:
 
@@ -60,7 +60,7 @@ You will need to install Flash Attention 2 by running:
 python -m pip install flash-attn --no-build-isolation
 ```
 
-# Training
+# 🏋️‍♂️ Training
 
 Training requires 4xA100 80GB GPUs. Please adjust the batch size and gradient accumulation steps if you have a different system.
 
@@ -97,11 +97,11 @@ Online DPO is split into two parts:
 # Add the script for online DPO training
 ```
 
-# Evaluation
+# 📋 Evaluation
 
 For Evaluation, please check the folder `evaluation`.
 
-# Citation
+# 📚  Citation
 
 If you find our repo useful, please consider cite it as follows:
 ```bibtex
