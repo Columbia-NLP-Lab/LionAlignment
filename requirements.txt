@@ -4,3 +4,5 @@ wandb
 transformers
 tqdm
 colorlog
+flash-attn
+alignment-handbook
