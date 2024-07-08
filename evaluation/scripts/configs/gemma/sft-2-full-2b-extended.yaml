@@ -1,0 +1,47 @@
+# Model arguments
+model_name_or_path: Columbia-NLP/gemma-2b-lion-sft-v0.1
+ref_model_name_or_path: null
+torch_dtype: bfloat16
+use_flash_attention_2: true
+
+# Data training arguments
+dataset_splits:
+  when2rl/dpo-mix-7k-rescaled_reformatted: ["train", "test"]
+  # when2rl/UltraFeedback_binarized_cleaned_annotated: ["train_prefs", "test_prefs"]
+dataset_mixer:
+  when2rl/dpo-mix-7k-rescaled_reformatted: 1.0
+  # when2rl/UltraFeedback_binarized_cleaned_annotated: 1.0
+preprocessing_num_workers: 64
+# new
+id_file_path: data/deita/ultrafbk_deita.csv
+kl_coeff: 0.1
+
+# DPOTrainer arguments
+bf16: true
+tf32: true
+do_eval: true
+evaluation_strategy: "epoch"
+gradient_accumulation_steps: 8
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: False
+learning_rate: 2.0e-05
+log_level: info
+logging_steps: 10
+lr_scheduler_type: linear
+max_seq_length: 2048
+num_train_epochs: 3
+optim: adamw_torch
+output_dir: model_checkpoints/gemma-2b-dpo-ultrabkf-deita-v0.1
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 4
+save_strategy: "epoch"
+save_total_limit: 1
+seed: 42
+warmup_ratio: 0.1
+report_to:
+- wandb
+
+## wandb logging config
+wandb_project: "when2rl"
+wandb_group: "zephyr-gemma-2b-presft"

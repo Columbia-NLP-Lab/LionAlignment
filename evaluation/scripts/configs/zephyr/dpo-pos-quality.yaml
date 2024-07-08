@@ -1,0 +1,57 @@
+# Model arguments
+model_name_or_path: alignment-handbook/zephyr-7b-sft-full
+torch_dtype: null
+
+# Data training arguments
+# all train_ splits will be mixed, subsampled, and used for training,
+# and all test_ splits will be mixed and used for evaluation
+# to make sure all dsets have the same 'formatting', see src/dataloads/formatting.py
+dataset_splits:
+  HuggingFaceH4/ultrafeedback_binarized: ["train_prefs", "test_prefs"]
+dataset_mixer:
+  HuggingFaceH4/ultrafeedback_binarized: 1.0
+positive_config:
+  threshold: 8.0
+  operand: '>='
+  # threshold: 6.0
+  # operand: '<='
+max_data_size: 5258  # if you do 'threshold': 6.0, and 'operand': '<=', there is 5258 examples
+preprocessing_num_workers: 12
+
+# DPOTrainer arguments
+bf16: true
+beta: 0.01
+do_eval: true
+# set grad accumulation to 8 if we are using 4 GPUs, 4 if we are using 8 GPUs
+gradient_accumulation_steps: 8
+gradient_checkpointing: true
+# gradient_checkpointing_kwargs:
+#   use_reentrant: False
+learning_rate: 5.0e-7
+log_level: info
+logging_steps: 10
+logging_strategy: steps
+lr_scheduler_type: cosine
+max_length: 1024
+max_prompt_length: 512
+num_train_epochs: 5
+optim: adamw_torch
+output_dir: model_checkpoints/zephyr-7b-dpo-full
+per_device_eval_batch_size: 4
+per_device_train_batch_size: 4
+push_to_hub: false
+report_to:
+- wandb
+save_strategy: "epoch"
+# save_steps: 100
+save_total_limit: 3
+metric_for_best_model: "eval_loss"
+# load_best_model_at_end: true
+evaluation_strategy: "epoch"
+# eval_steps: 100
+seed: 42
+warmup_ratio: 0.1
+
+## wandb logging config
+wandb_project: "when2rl"
+wandb_group: "zephyr-pos-quality"

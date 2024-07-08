@@ -1,0 +1,45 @@
+# Model arguments
+model_name_or_path: HuggingFaceH4/zephyr-7b-gemma-sft-v0.1
+torch_dtype: bfloat16
+
+# Data training arguments
+dataset_splits:
+  argilla/dpo-mix-7k: ["train", "test"]
+dataset_mixer:
+  argilla/dpo-mix-7k: 1.0
+preprocessing_num_workers: 12
+
+# DPOTrainer arguments
+bf16: true
+beta: 0.05
+do_eval: true
+gradient_accumulation_steps: 8
+gradient_checkpointing: true
+# gradient_checkpointing_kwargs:
+#   use_reentrant: False
+hub_model_id: zephyr-7b-gemma-dpo
+learning_rate: 5.0e-7
+log_level: info
+logging_steps: 10
+lr_scheduler_type: cosine
+max_length: 1024
+max_prompt_length: 512
+num_train_epochs: 2
+optim: adamw_torch
+output_dir: model_checkpoints/zephyr-7b-gemma-dpo-full
+per_device_train_batch_size: 2
+per_device_eval_batch_size: 4
+push_to_hub: false
+report_to:
+- wandb
+save_strategy: "epoch"
+save_total_limit: 1
+evaluation_strategy: steps
+eval_steps: 100
+seed: 42
+warmup_ratio: 0.1
+
+
+## wandb logging config
+wandb_project: "when2rl"
+wandb_group: "zephyr-dpo-full-reprod"

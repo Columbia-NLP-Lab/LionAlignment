@@ -1,0 +1,36 @@
+torch==2.0.1
+transformers>=4.38.2
+trl
+flash_attn>=2.1.0
+bitsandbytes
+accelerate
+deepspeed==0.12.3
+datasets
+sentencepiece
+openai
+tiktoken
+wandb
+ray
+gradio
+tqdm
+jsonlines
+ipywidgets
+shortuuid
+fschat[model_worker,llm_judge]
+gradio==3.48.0
+anthropic
+tenacity
+langdetect
+pycld2
+# for lm-eval
+lm-eval==0.4.1
+promptsource
+immutabledict
+# for bertopic
+bertopic
+pydantic==1.10.14
+sentence_transformers
+pynndescent
+hdbscan
+umap-learn
+plotly

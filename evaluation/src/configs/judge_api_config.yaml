@@ -1,0 +1,23 @@
+gpt-3.5-turbo-0125:
+    model_name: gpt-3.5-turbo-0125
+    endpoint: null
+    api_type: openai
+    parallel: 8
+
+gpt-4-0314:
+    model_name: gpt-4-0314
+    endpoint: null
+    api_type: openai
+    parallel: 8
+
+gpt-4-1106-preview:
+    model_name: gpt-4-1106-preview
+    endpoint: null
+    api_type: openai
+    parallel: 8
+
+gpt-4o-2024-05-13:
+    model_name: gpt-4o-2024-05-13
+    endpoint: null
+    api_type: openai
+    parallel: 8
