@@ -5,7 +5,7 @@
 
 The LION-series are trained using an **empirically optimized pipeline** that consists of three stages: SFT, DPO, and online preference learning (online DPO). We find simple techniques such as sequence packing, loss masking in SFT, increasing the preference dataset size in DPO, and online DPO training can significantly improve the performance of language models. Our best models (the LION-series) **exceed the performance of the official instruct models** tuned with closed-source data and algorithms.
 
-## 📦 Model Releases
+## 🚀 Model Releases
 
 We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our models and intermediate checkpoints for reproducibility.
 
@@ -46,7 +46,7 @@ We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our model
 |[LION-LLaMA-3-8b-odpo-v1.0 (ours)](https://huggingface.co/Columbia-NLP/LION-LLaMA-3-8b-odpo-v1.0) | SFT+DPO+ODPO | 8B | 22.0 | 26.8 | 8.19 | 71.41 |
 
 
-## 📥 Installation
+## 📦 Installation
 
 To install the required dependencies, run:
 
@@ -60,18 +60,18 @@ You will need to install Flash Attention 2 by running:
 python -m pip install flash-attn --no-build-isolation
 ```
 
-# 🏋️‍♂️ Training
+## 🏋️ Training
 
 Training requires 4xA100 80GB GPUs. Please adjust the batch size and gradient accumulation steps if you have a different system.
 
 
-## Stage 1: SFT
+### Stage 1: SFT
 
 ```
 ACCELERATE_LOG_LEVEL=info accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml scripts/run_sft.py configs/llama-3-8b/sft/LION-LLaMA-3-8b-sft-v1.0.yaml
 ```
 
-## Stage 2: DPO
+### Stage 2: DPO
 
 For DPO training, you need to first pre-compute the logits and save it for further training. Here, you can customize 
 ```sh
@@ -83,25 +83,25 @@ Then, start the full DPO training process.
 ACCELERATE_LOG_LEVEL=info accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml scripts/run_dpo.py configs/llama-3-8b/dpo/LION-LLaMA-3-8b-dpo-v1.0.yaml
 ```
 
-## Stage 3: Online DPO
+### Stage 3: Online DPO
 
 Online DPO is split into two parts:
 
-### Generate data
+#### Generate data
 ```sh
 # Add the script to generate data
 ```
 
-### Training
+#### Training
 ```sh
 # Add the script for online DPO training
 ```
 
-# 📋 Evaluation
+## 📋 Evaluation
 
 For Evaluation, please check the folder `evaluation`.
 
-# 📚  Citation
+## 📚  Citation
 
 If you find our repo useful, please consider cite it as follows:
 ```bibtex
