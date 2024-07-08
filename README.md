@@ -1,4 +1,4 @@
-<img align="left" width="80" height="80" src="https://raw.githubusercontent.com/akarsh/akarsh-seggemu-resume/master/akarsh%20seggemu%20resume/Assets/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60%403x.png](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0zHcP2vf_SQ8HgxLp9VaWBGdNaoViPcnyHQ&s">
+<img align="left" width="80" height="80" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0zHcP2vf_SQ8HgxLp9VaWBGdNaoViPcnyHQ&s">
 
 
 # LIONs Alignment
