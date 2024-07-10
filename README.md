@@ -105,6 +105,15 @@ For Evaluation, please check the folder `evaluation`.
 
 If you find our repo useful, please consider cite it as follows:
 ```bibtex
+@misc{yu2024lionsempiricallyoptimizedapproach,
+      title={LIONs: An Empirically Optimized Approach to Align Language Models}, 
+      author={Xiao Yu and Qingyang Wu and Yu Li and Zhou Yu},
+      year={2024},
+      eprint={2407.06542},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2407.06542}, 
+}
 ```
 
 
