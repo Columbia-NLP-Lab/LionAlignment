@@ -16,8 +16,9 @@
 import dataclasses
 import os
 import sys
+import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, NewType, Optional, Tuple
+from typing import Any, Dict, List, NewType, Optional, Tuple, Union
 
 import transformers
 from transformers import MODEL_FOR_CAUSAL_LM_MAPPING, HfArgumentParser
@@ -31,9 +32,7 @@ DataClassType = NewType("DataClassType", Any)
 
 
 class H4ArgumentParser(HfArgumentParser):
-    def parse_yaml_and_args(
-        self, yaml_arg: str, other_args: Optional[List[str]] = None
-    ) -> List[dataclass]:
+    def parse_yaml_and_args(self, yaml_arg: str, other_args: Optional[List[str]] = None) -> List[dataclass]:
         """
         Parse a YAML file and overwrite the default/loaded values with the values provided to the command line.
 
@@ -50,9 +49,7 @@ class H4ArgumentParser(HfArgumentParser):
 
         outputs = []
         # strip other args list into dict of key-value pairs
-        other_args = {
-            arg.split("=")[0].strip("-"): arg.split("=")[1] for arg in other_args
-        }
+        other_args = {arg.split("=")[0].strip("-"): arg.split("=")[1] for arg in other_args}
         used_args = {}
 
         # overwrite the default/loaded value with the value provided to the command line
@@ -62,7 +59,6 @@ class H4ArgumentParser(HfArgumentParser):
             inputs = {k: v for k, v in vars(data_yaml).items() if k in keys}
             for arg, val in other_args.items():
                 # add only if in keys
-
                 if arg in keys:
                     base_type = data_yaml.__dataclass_fields__[arg].type
                     inputs[arg] = val
@@ -73,6 +69,9 @@ class H4ArgumentParser(HfArgumentParser):
 
                     if base_type == List[str]:
                         inputs[arg] = [str(v) for v in val.split(",")]
+
+                    if 'typing.Dict' in str(base_type):
+                        inputs[arg] = json.loads(val)
 
                     # bool of a non-empty string is True, so we manually check for bools
                     if base_type == bool:
@@ -85,25 +84,21 @@ class H4ArgumentParser(HfArgumentParser):
                     if arg not in used_args:
                         used_args[arg] = val
                     else:
-                        raise ValueError(
-                            f"Duplicate argument provided: {arg}, may cause unexpected behavior"
-                        )
+                        raise ValueError(f"Duplicate argument provided: {arg}, may cause unexpected behavior")
 
             obj = data_class(**inputs)
             outputs.append(obj)
 
         return outputs
 
-    def parse(self) -> DataClassType | Tuple[DataClassType]:
+    def parse(self) -> Union[DataClassType, Tuple[DataClassType]]:
         if len(sys.argv) == 2 and sys.argv[1].endswith(".yaml"):
             # If we pass only one argument to the script and it's the path to a YAML file,
             # let's parse it to get our arguments.
             output = self.parse_yaml_file(os.path.abspath(sys.argv[1]))
         # parse command line args and yaml file
         elif len(sys.argv) > 2 and sys.argv[1].endswith(".yaml"):
-            output = self.parse_yaml_and_args(
-                os.path.abspath(sys.argv[1]), sys.argv[2:]
-            )
+            output = self.parse_yaml_and_args(os.path.abspath(sys.argv[1]), sys.argv[2:])
         # parse command line args only
         else:
             output = self.parse_args_into_dataclasses()
@@ -132,6 +127,14 @@ class ModelArguments:
         metadata={
             "help": (
                 "The model checkpoint for weights initialization. Don't set if you want to train a model from scratch."
+            )
+        },
+    )
+    ref_model_name_or_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The reference model for DPO."
             )
         },
     )
@@ -214,6 +217,7 @@ class ModelArguments:
     def __post_init__(self):
         if self.load_in_8bit and self.load_in_4bit:
             raise ValueError("You can't use 8 bit and 4 bit precision at the same time")
+        return
 
 
 @dataclass
@@ -272,4 +276,42 @@ class DataArguments:
                 "Whether to automatically insert an empty system message as the first message if `system` is mentioned in the chat template."
             )
         },
+    )
+
+
+
+@dataclass
+class DataArgumentsXY:
+    """
+    Arguments pertaining to what data we are going to input our model for training and eval.
+    """
+
+    dataset_mixer: Dict[str, float] = field(
+        metadata={"help": ("Datasets and their proportions to be used for training ift/rl.")},
+    )
+    dataset_splits: Dict[str, List] = field(
+        metadata={"help": ("dictionary of dset: [splits] to use for training and testing")},
+    )
+    chat_template: Optional[str] = field(default=None, metadata={"help": "The chat template to use."})
+    preprocessing_num_workers: Optional[int] = field(
+        default=None,
+        metadata={"help": "The number of processes to use for the preprocessing."},
+    )
+    truncation_side: Optional[str] = field(
+        default=None, metadata={"help": "Truncation side to use for the tokenizer."}
+    )
+
+
+@dataclass
+class LoggingArguments:
+    """
+    Arguments pertaining to remote logging
+    """
+    wandb_group: Optional[str] = field(
+        default='default',
+        metadata={"help": ("The wandb group to use for logging.")},
+    )
+    wandb_project: Optional[str] = field(
+        default='when2rl',
+        metadata={"help": ("The wandb project to use for logging.")},
     )

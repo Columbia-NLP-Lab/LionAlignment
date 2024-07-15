@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import torch
 import torch.nn.functional as F
+import hashlib
 from torch.nn.utils.rnn import pad_sequence
 
 import hashlib
@@ -248,6 +249,118 @@ def get_datasets(
         )
 
     return final_datasets
+
+
+def get_datasets_xy(
+    data_config,
+    splits: List[str] = ["train", "test"],
+    col_to_mix: List[str] = None,
+    shuffle: bool = True,
+) -> DatasetDict:
+    """
+    Loads one or more datasets with varying training set proportions.
+
+    Args:
+        data_config (`DataArguments` or `dict`):
+            Dataset configuration and split proportions.
+        splits (`List[str]`, *optional*, defaults to `['train', 'test']`):
+            Dataset splits to load and mix. Assumes the splits exist in all datasets and have a `train_` or `test_` prefix.
+        col_to_mix:
+            if not None, the column to mix after loading the dataset
+        shuffle (`bool`, *optional*, defaults to `True`):
+            Whether to shuffle the training and testing/validation data.
+
+    Returns
+        [`DatasetDict`]: The dataset dictionary containing the loaded datasets.
+    """
+    dataset_mixer = data_config.dataset_mixer
+
+    raw_datasets = mix_datasets(dataset_mixer, splits=splits, col_to_mix=col_to_mix, shuffle=shuffle)
+    return raw_datasets
+
+
+def mix_datasets(dataset_mixer: dict, splits: Optional[Union[List[str], Dict[str, list]]] = None, col_to_mix=None, shuffle=True) -> DatasetDict:
+    """
+    Loads and mixes datasets according to proportions specified in `dataset_mixer`.
+
+    Args:
+        dataset_mixer (`dict`):
+            Dictionary containing the dataset names and their training proportions. By default, all test proportions are 1.
+        splits (Optional[List[str]], *optional*, defaults to `None`):
+            Dataset splits to load and mix. Assumes the splits exist in all datasets and have a `train_` or `test_` prefix.
+        shuffle (`bool`, *optional*, defaults to `True`):
+            Whether to shuffle the training and testing/validation data.
+    """
+    raw_datasets = DatasetDict()
+    raw_train_datasets = {}
+    raw_val_datasets = []  # this will not be subsampled, so we can just append to it
+    # if its a list, we assume the same split names are used for all datasets
+    if isinstance(splits, dict):
+        for ds, splits_ in splits.items():
+            for split in splits_:
+                if ds.startswith("data/"):
+                    # local dataset
+                    dataset = load_from_disk(os.path.join(ds, split))
+                else:
+                    try:
+                        # Try first if dataset on a Hub repo
+                        dataset = load_dataset(ds, split=split)
+                    except (DatasetGenerationError, ValueError):
+                        # If not, check local dataset
+                        dataset = load_from_disk(os.path.join(ds, split))
+                if col_to_mix is not None:
+                    dataset = dataset.select_columns(col_to_mix)
+
+                if "train" in split:
+                    if ds not in raw_train_datasets:
+                        raw_train_datasets[ds] = []
+                    raw_train_datasets[ds].append(dataset)
+                elif "test" in split:
+                    raw_val_datasets.append(dataset)
+                else:
+                    raise ValueError(f"Split type {split} not recognized as one of test or train.")
+    else:
+        raise ValueError(f"Split type {splits} not recognized as one of list or dict.")
+
+    # if any(frac < 0 for frac in fracs):
+    #     raise ValueError("Dataset fractions cannot be negative.")
+    if any(frac < 0 for frac in dataset_mixer.values()):
+        raise ValueError("Dataset fractions cannot be negative.")
+
+    ### now we mix them
+    if len(raw_train_datasets) > 0:
+        train_subsets = []
+        for dsname, dss in raw_train_datasets.items():
+            frac = dataset_mixer[dsname]
+            for ds in dss:
+                train_subset = ds.select(range(int(frac * len(ds))))
+                train_subsets.append(train_subset)
+        if shuffle:
+            raw_datasets["train"] = concatenate_datasets(train_subsets).shuffle(seed=42)
+        else:
+            raw_datasets["train"] = concatenate_datasets(train_subsets)
+    # No subsampling for test datasets to enable fair comparison across models
+    if len(raw_val_datasets) > 0:
+        if shuffle:
+            raw_datasets["test"] = concatenate_datasets(raw_val_datasets).shuffle(seed=42)
+        else:
+            raw_datasets["test"] = concatenate_datasets(raw_val_datasets)
+
+    if len(raw_datasets) == 0:
+        raise ValueError(
+            f"Dataset {dataset_mixer} not recognized with split {split}. Check the dataset has been correctly formatted."
+        )
+
+    return raw_datasets
+
+
+def add_full_id(data_dict: dict):
+    text_chosen = data_dict['chosen']
+    text_rejected = data_dict['rejected']
+    full_encoded = f"{text_chosen} {text_rejected}"
+    full_encoded_id = hashlib.sha256(full_encoded.encode("utf-8")).hexdigest()
+    data_dict['full_id'] = full_encoded_id
+    return data_dict
 
 
 def _extract_stage_datasets(

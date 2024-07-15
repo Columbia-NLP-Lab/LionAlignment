@@ -1,3 +1,5 @@
+data
+model_checkpoints*
 !lionllm/data
 # Byte-compiled / optimized / DLL files
 __pycache__/

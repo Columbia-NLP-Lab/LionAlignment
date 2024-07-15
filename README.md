@@ -62,7 +62,7 @@ python -m pip install flash-attn --no-build-isolation
 
 ## 🏋️ Training
 
-Training requires 4xA100 80GB GPUs. Please adjust the batch size and gradient accumulation steps if you have a different system.
+Training requires (at most) 4xA100 80GB GPUs. Please adjust the batch size and gradient accumulation steps if you have a different system.
 
 
 ### Stage 1: SFT

@@ -1,0 +1,48 @@
+# Model arguments
+model_name_or_path: Columbia-NLP/LION-Gemma-2b-sft-v1.0
+ref_model_name_or_path: null # use model_name_or_path if null
+torch_dtype: bfloat16
+use_flash_attention_2: true
+
+# Data training arguments
+dataset_splits:
+  Columbia-NLP/lion-dpo-mix-v0.3: ["train_165k", "test"]
+dataset_mixer:
+  Columbia-NLP/lion-dpo-mix-v0.3: 1.0
+preprocessing_num_workers: 64
+max_data_size: -1  # -1 means all data
+ref_update_steps: -1  # -1 means no update
+precompute_train_ref_file_path: ""
+precompute_test_ref_file_path: ""
+
+# DPOTrainer arguments
+bf16: true
+tf32: true
+beta: 0.05
+do_eval: true
+evaluation_strategy: "epoch"
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: False
+learning_rate: 5.0e-07
+log_level: info
+logging_steps: 10
+lr_scheduler_type: linear
+max_length: 2048
+max_prompt_length: 512
+num_train_epochs: 2
+optim: adamw_torch
+output_dir: model_checkpoints/gemma-2b-zephyr-dpo-v0.4
+gradient_accumulation_steps: 32
+per_device_train_batch_size: 1
+per_device_eval_batch_size: 1
+save_strategy: "epoch"
+save_total_limit: 1
+seed: 42
+warmup_ratio: 0.1
+report_to:
+- wandb
+
+## wandb logging config
+wandb_project: "LIONs"
+wandb_group: "lion-gemma-v1.0"
