@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import hashlib
+import pathlib
 from torch.nn.utils.rnn import pad_sequence
 
 import hashlib
@@ -21,6 +22,11 @@ from datasets import (
     load_from_disk,
 )
 from datasets.builder import DatasetGenerationError
+
+
+def create_dir_if_not_exists(path: str):
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    return
 
 
 def maybe_insert_system_message(messages, tokenizer, prob=0.8):
