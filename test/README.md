@@ -106,7 +106,7 @@ CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python test/run_alpaca_eval.py \
 --model_path=${MODEL_PATH} \
 --tokenizer_path=${MODEL_PATH} \
 --model_id=${MODEL_NAME} \
---gen_temperature=0.7 \
+--gen_temperature=0.0 \
 --use_sglang \
 --gen_parallel=16 \
 --chat_template=configs/chat_templates/lion-gemma-2b.json \
@@ -323,14 +323,14 @@ MODEL_PATH=Columbia-NLP/LION-LLaMA-3-8b-odpo-v1.0
 MODEL_NAME=Columbia-NLP_LION-LLaMA-3-8b-odpo-v1.0
 EVAL_GPU_IDX=0
 
-rm -rf data/openllm/${MODEL_NAME}
+rm -rf data/openllm_v2/${MODEL_NAME}
 
 CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python test/run_lm_eval_v2.py \
 --model_name_or_path=${MODEL_PATH} \
 --torch_dtype=bfloat16 \
 --attn_implementation="flash_attention_2" \
 --batch_size=8 \
---output_path=data/openllm/${MODEL_NAME}_bf16 \
+--output_path=data/openllm_v2/${MODEL_NAME}_bf16 \
 --log_samples=false \
 --to_wandb=false
 ```
