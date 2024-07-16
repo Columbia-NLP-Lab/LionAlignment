@@ -1,7 +1,0 @@
-dataset_to_test:
-  # HuggingFaceH4/ultrachat_200k: train_sft
-  when2rl/UltraFeedback_binarized_cleaned_annotated: train_prefs
-per_dataset_size:
-  train: 1000
-  validation: 500
-  test: 500

@@ -24,7 +24,16 @@ For each benchmark, we additionally include the following features:
     ```
     Note that this will also download a `results` folder, which contains all precomputed model results used for computing the leaderboard. To make the following scripts work, you need to *copy/move that folder to `data/alpaca_eval_results`*. See the next step for more details.
 - `fastchat` for MT-Bench and Arena Hard
+    ```bash
+    pip install fschat[model_worker,llm_judge]
+    pip install gradio==3.48.0
+    ```
 - `lm_eval` for OpenLLM 1.0 and 2.0
+    ```bash
+    git clone https://github.com/EleutherAI/lm-evaluation-harness
+    cd lm-evaluation-harness
+    pip install -e .
+    ```
 
 **Next**, configure your `data` folder to include the following directories:
 
@@ -48,9 +57,17 @@ data/
 └── openllm              # empty folder for storing openllm v1 results
 ```
 
-**Finally**, ensure `sglang` is installed in your system, which is used by our scripts to *significantly speed up* the evaluation process by automatically hosting your model on a `sglang` server. You can install this by simply:
+**Finally**, ensure `sglang` is installed in your system, which is used by our scripts to *significantly speed up* the evaluation process by automatically hosting your model on a `sglang` server. You can install this by:
 
-xxx
+```bash
+git clone https://github.com/sgl-project/sglang.git
+cd sglang
+
+pip install -e "python[all]"
+
+# Install FlashInfer CUDA kernels
+pip install flashinfer -i https://flashinfer.ai/whl/cu121/torch2.3/
+```
 
 
 ## Running Evaluation
@@ -85,7 +102,7 @@ MODEL_PATH=Columbia-NLP/LION-Gemma-2b-odpo-v1.0
 MODEL_NAME=Columbia-NLP_LION-Gemma-2b-odpo-v1.0
 EVAL_GPU_IDX=0
 
-CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python scripts/test/run_alpaca_eval.py \
+CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python test/run_alpaca_eval.py \
 --model_path=${MODEL_PATH} \
 --tokenizer_path=${MODEL_PATH} \
 --model_id=${MODEL_NAME} \
@@ -113,7 +130,7 @@ To evaluate `Columbia-NLP/LION-LLaMA-3-8b-odpo-v1.0` on AlpacaEval 2.0, run:
 ```bash
 MODEL_PATH=Columbia-NLP/LION-LLaMA-3-8b-odpo-v1.0
 MODEL_NAME=Columbia-NLP_LION-LLaMA-3-8b-odpo-v1.0
-EVAL_GPU_IDX=0
+EVAL_GPU_IDX=2
 
 CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python test/run_alpaca_eval.py \
 --model_path=${MODEL_PATH} \
@@ -324,7 +341,6 @@ CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python test/run_lm_eval_v2.py \
 To evaluate `Columbia-NLP/LION-Gemma-2b-odpo-v1.0` on OpenLLM 1.0, run:
 
 ```bash
-
 MODEL_PATH=Columbia-NLP/LION-Gemma-2b-odpo-v1.0
 MODEL_NAME=Columbia-NLP_LION-Gemma-2b-odpo-v1.0
 EVAL_GPU_IDX=0
