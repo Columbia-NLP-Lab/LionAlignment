@@ -99,7 +99,23 @@ Online DPO is split into two parts:
 
 ## 📋 Evaluation
 
-For Evaluation, please check the folder `evaluation`.
+We provide easy **ALL-IN-ONE** evaluation pipeline in this directory for popular benchmarks including:
+
+- MT-Bench
+- Alpaca Eval 2.0
+- Arena Hard Auto
+- Huggingface OpenLLM 1.0
+- Huggingface OpenLLM 2.0
+
+For each benchmark, we additionally include the following features:
+
+- automatically host your model on an `sglang` server for faster evaluation (except for OpenLLM evals)
+- support multiple runs to compute the average performance (`--num_runs`)
+- logging performance to `wandb` (`--to_wandb`)
+
+
+For setup and run details, please refer to [test](test/README.md).
+
 
 ## 📚  Citation
 
