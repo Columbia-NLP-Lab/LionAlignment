@@ -582,23 +582,20 @@ def hash_obj(obj, length=16):
     return truncated_hex_digest
 
 
-def get_dataset_cache_hash(
-    dataset_mixer,
-    dataset_split,
-    chat_template,
-    auto_insert_empty_system_msg: bool = True,
-    shuffle: bool = True,
-    seed: Optional[int] = None,
-    **kwargs,
-):
-    params = {
-        "dataset_mixer": dataset_mixer,
-        "dataset_split": dataset_split,
-        "chat_template": chat_template,
-        "auto_insert_empty_system_msg": auto_insert_empty_system_msg,
-        "shuffle": shuffle,
-        "seed": seed,
-    }
+def get_dataset_cache_hash(*args, **kwargs):
+    """
+    Calculate the hash value for caching a dataset.
+
+    Args:
+        *args: Variable length arguments.
+        **kwargs: Keyword arguments.
+
+    Returns:
+        int: The hash value for caching the dataset.
+    """
+    params = {}
+    for i, arg in enumerate(args):
+        params[f"arg_{i}"] = arg
     params.update(kwargs)
 
     return hash_obj(params)

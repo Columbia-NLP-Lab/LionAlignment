@@ -1,7 +1,9 @@
 # Model arguments
-model_name_or_path: meta-llama/Meta-Llama-3-8B
-tokenizer_name_or_path: NousResearch/Hermes-2-Theta-Llama-3-8B # Custom tokenizer with <|im_start|> and <|im_end|> tokens
+model_name_or_path: google/gemma-2b
+model_revision: main
+tokenizer_name_or_path: philschmid/gemma-tokenizer-chatml # Custom tokenizer with <|im_start|> and <|im_end|> tokens
 torch_dtype: bfloat16
+use_flash_attention_2: true
 
 # Adjust size of each dataset
 train_dataset_mixer:
@@ -20,11 +22,12 @@ train_dataset_split: train_sft
 assistant_bos: "<|im_start|>assistant\n"
 assistant_eos: "<|im_end|>"
 preprocessing_num_workers: 64
-mask_user_labels: true
+mask_user_labels: false
 mask_embed_grad: true
 shuffle_train_dataloader: true
 use_fast_model: true
 dataset_cache_dir: dataset_cache
+
 
 # SFT trainer config
 bf16: true
@@ -32,7 +35,7 @@ tf32: true
 do_eval: false
 evaluation_strategy: "no"
 # eval_steps: 2
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 2
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: false
@@ -43,17 +46,17 @@ logging_strategy: steps
 lr_scheduler_type: cosine
 max_seq_length: 8192
 max_steps: -1
-num_train_epochs: 1
-output_dir: outputs/llama3_8b_lion_sft_pre_dpo_v0.1_bsz32_lr2e-5
+num_train_epochs: 3
+output_dir: model_checkpoints/LION-Gemma-2b-sft-v1.0
 overwrite_output_dir: true
 per_device_eval_batch_size: 4
-per_device_train_batch_size: 2
+per_device_train_batch_size: 4
 push_to_hub: false
 remove_unused_columns: true
 report_to:
 - none
 save_strategy: "steps"
-save_steps: 200
-save_total_limit: 2
+save_steps: 5000
+save_total_limit: 5
 seed: 42
 warmup_ratio: 0.1

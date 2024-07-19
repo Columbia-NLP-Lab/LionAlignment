@@ -1,5 +1,5 @@
 # Model arguments
-model_name_or_path: outputs/llama3_8b_lion_sft_pre_dpo_v0.1_bsz32_lr2e-5
+model_name_or_path: model_checkpoints/LION-LLaMA-3-8b-sft-v1.0
 model_revision: main
 torch_dtype: bfloat16
 
@@ -21,13 +21,13 @@ dataset_cache_dir: dataset_cache
 
 # DPOTrainer arguments
 beta: 0.01
-learning_rate: 3.0e-7
+learning_rate: 5.0e-7
 bf16: true
 tf32: true
 do_eval: false
 evaluation_strategy: "no"
 eval_steps: 100
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 16
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: False
@@ -38,11 +38,11 @@ max_length: 2048
 max_prompt_length: 1024
 num_train_epochs: 1
 optim: adamw_torch
-output_dir: outputs/llama3_8b_lion_dpo_v0.1_1epoch_bsz128_beta0.01_lr3e-7
-per_device_train_batch_size: 4
+output_dir: model_checkpoints/LION-LLaMA-3-8b-dpo-v1.0
+per_device_train_batch_size: 2
 per_device_eval_batch_size: 4
 report_to:
-- none
+- wandb
 save_strategy: "steps"
 save_steps: 100
 save_total_limit: 2

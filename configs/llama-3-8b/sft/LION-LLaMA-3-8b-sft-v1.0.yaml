@@ -44,14 +44,14 @@ lr_scheduler_type: cosine
 max_seq_length: 8192
 max_steps: -1
 num_train_epochs: 1
-output_dir: outputs/llama3_8b_lion_sft_pre_dpo_v0.1_bsz32_lr2e-5
+output_dir: model_checkpoints/LION-LLaMA-3-8b-sft-v1.0
 overwrite_output_dir: true
 per_device_eval_batch_size: 4
 per_device_train_batch_size: 2
 push_to_hub: false
 remove_unused_columns: true
 report_to:
-- none
+- wandb
 save_strategy: "steps"
 save_steps: 200
 save_total_limit: 2
