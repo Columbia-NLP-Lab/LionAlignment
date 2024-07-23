@@ -10,10 +10,10 @@ PORT=29556
 CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
  --num_processes=${NUM_GPUS} \
  --main_process_port=${PORT} \
- scripts/run_get_log_probs.py ${CONFIG_FILE}
+ scripts/precompute_dpo_logprobs.py ${CONFIG_FILE}
 
 # 2. Train with DPO
 CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
   --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml \
   --main_process_port=${PORT} \
-  scripts/run_dpo_.py ${CONFIG_FILE}
+  scripts/precompute_dpo_logprobs.py ${CONFIG_FILE}
