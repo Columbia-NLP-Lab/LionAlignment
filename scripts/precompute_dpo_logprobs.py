@@ -167,7 +167,7 @@ def load_and_process_dpo_dataset(
     model_args, data_args, training_args, tokenizer, data_processor, eval=False
 ):
     mixer = data_args.eval_dataset_mixer if eval else data_args.train_dataset_mixer
-    split = data_args.eval_dataset_split if eval else data_args.train_dataset_split
+    split = data_args.eval_dataset_splits if eval else data_args.train_dataset_splits
     shuffle = False if eval else training_args.shuffle_train_dataloader
 
     def process_chat_template(datasets):

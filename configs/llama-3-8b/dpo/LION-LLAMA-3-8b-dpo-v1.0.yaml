@@ -12,7 +12,7 @@ train_dataset_mixer:
   when2rl/HelpSteer_reformatted: 1.0
   when2rl/Nectar_reformatted: 1.0
   when2rl/PKU-SafeRLHF_reformatted_filtered: 0.1  # include 10k examples to balance ratio
-train_dataset_split: train
+train_dataset_splits: train
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true

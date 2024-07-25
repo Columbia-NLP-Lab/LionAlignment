@@ -7,11 +7,11 @@ use_flash_attention_2: true
 # Data training arguments
 train_dataset_mixer:
   Columbia-NLP/lion-dpo-mix-v0.3: 1.0
-train_dataset_split: "train_165k"
+train_dataset_splits: "train_165k"
 
 eval_dataset_mixer:
   Columbia-NLP/lion-dpo-mix-v0.3: 1.0
-eval_dataset_split: "test"
+eval_dataset_splits: "test"
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true

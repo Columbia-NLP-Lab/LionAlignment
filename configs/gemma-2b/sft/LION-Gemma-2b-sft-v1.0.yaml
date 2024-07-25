@@ -16,7 +16,7 @@ train_dataset_mixer:
     Columbia-NLP/ruozhiba_en: 1.0
     Columbia-NLP/Magicoder-Evol-Instruct-110K: 1.0
     Columbia-NLP/SlimOrca-Dedup: 1.0
-train_dataset_split: train_sft
+train_dataset_splits: train_sft
 
 # Data training arguments
 assistant_bos: "<|im_start|>assistant\n"

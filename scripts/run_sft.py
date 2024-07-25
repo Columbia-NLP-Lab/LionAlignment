@@ -113,7 +113,7 @@ def main():
         # compute the hash of the train dataset
         train_dataset_cache_hash = get_dataset_cache_hash(
             data_args.train_dataset_mixer,
-            data_args.train_dataset_split,
+            data_args.train_dataset_splits,
             data_args.chat_template,
             data_args.auto_insert_empty_system_msg,
             training_args.shuffle_train_dataloader,
@@ -136,7 +136,7 @@ def main():
         else:
             train_dataset = get_datasets(
                 data_args.train_dataset_mixer,
-                data_args.train_dataset_split,
+                data_args.train_dataset_splits,
                 columns_to_keep=["messages", "dataset_mix_source"],
                 dedup_key="messages",
                 shuffle=training_args.shuffle_train_dataloader,
@@ -189,7 +189,7 @@ def main():
         if data_args.eval_dataset_mixer is not None:
             eval_dataset = get_datasets(
                 data_args.eval_dataset_mixer,
-                data_args.eval_dataset_split,
+                data_args.eval_dataset_splits,
                 columns_to_keep=["messages", "dataset_mix_source"],
                 dedup_key="messages",
                 shuffle=False,

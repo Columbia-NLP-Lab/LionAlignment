@@ -235,7 +235,7 @@ class DataArguments:
             "help": ("Datasets and their proportions to be used for training ift/rl.")
         },
     )
-    train_dataset_split: Optional[str] = field(
+    train_dataset_splits: Optional[str] = field(
         default_factory=lambda: "train",
         metadata={"help": ("The dataset split to use for training ift/rl.")},
     )
@@ -245,7 +245,7 @@ class DataArguments:
             "help": ("Datasets and their proportions to be used for evaluation ift/rl.")
         },
     )
-    eval_dataset_split: Optional[str] = field(
+    eval_dataset_splits: Optional[str] = field(
         default_factory=lambda: "validation",
         metadata={"help": ("The dataset split to use for evaluation ift/rl.")},
     )
