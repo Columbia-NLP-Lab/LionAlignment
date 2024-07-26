@@ -6,6 +6,9 @@ import time
 import signal
 import math
 import subprocess
+import torch
+import gc
+import random
 from datasets import load_dataset, Dataset, concatenate_datasets
 from typing import List
 from copy import deepcopy
@@ -49,9 +52,6 @@ class DPODataGenArgs:
     openai_api_base: str = field(
         default=None, metadata={"help": "The openai api base url."}
     )
-    logging_save_path: str = field(
-        default="", metadata={"help": "The path to save the sglang log file."}
-    )
     ## sglang
     sglang_ports: List[str] = field(
         default = None, metadata={"help": "The ports to run sglang servers."}
@@ -63,18 +63,6 @@ class DPODataGenArgs:
             raise ValueError("model_path must be specified.")
         if self.model_id == '':
             self.model_id = self.model_path
-        
-        if self.logging_save_path == "":
-            path = Path(self.model_path)
-            if not path.exists():
-                raise FileNotFoundError((
-                    f"{self.model_path} not found. "
-                    "You are likely using a pretrained model path as save folder. "
-                    "Please specify a dedicated save folder using --logging_save_path."
-                ))
-        else:
-            # make sure the dir exists
-            create_dir_if_not_exists(self.logging_save_path)
         return
 
 
@@ -100,6 +88,12 @@ class GenericArgs:
     )
     max_samples: int = field(
         default=-1, metadata={"help": "The maximum number of samples to use."}
+    )
+    p_ori_pair: float = field(
+        default=0.0, metadata={"help": "The probability of using original pair."}
+    )
+    p_ori_chosen: float = field(
+        default=0.0, metadata={"help": "The probability of using original chosen."}
     )
     judge_only: bool = field(
         default=False, metadata={"help": "Whether to only run the judgment loop. Suitable if you already have gen files and want to try another judge."}
@@ -186,7 +180,7 @@ def gen_api_answer(gen_args: DPODataGenArgs, dataset: Dataset, gen_save_path: st
             future.result()
 
             num_completed += 1
-            if num_completed % 1000 == 0:
+            if num_completed % 100 == 0:  # TODO: change this back to 1000
                 print(f"Completed {num_completed} samples.")
                 # flush
                 new_dataset_ = [Dataset.from_list(RESULT_LIST)]
@@ -196,6 +190,12 @@ def gen_api_answer(gen_args: DPODataGenArgs, dataset: Dataset, gen_save_path: st
                     new_dataset.save_to_disk(gen_save_path)
                 
                 accelerator.wait_for_everyone()
+
+                del new_dataset_
+                del gathered_dataset
+                del new_dataset
+                torch.cuda.empty_cache()
+                gc.collect()
     new_dataset = Dataset.from_list(RESULT_LIST)
     return new_dataset
 
@@ -310,6 +310,52 @@ def filter_dup_gens(data_dict):
     return True
 
 
+def mix_dataset(gen_dataset, ori_dataset, p_ori_pair, p_ori_chosen):
+    gen_dataset_idx = set(gen_dataset['prompt_id'])
+    # remove idx that appear more than once
+    
+    ori_dataset_df = ori_dataset.to_pandas()
+    ori_dataset_df = ori_dataset_df.drop_duplicates(subset=['prompt_id'], keep=False)
+    ori_dateset_idx = set(ori_dataset_df['prompt_id'].values)
+    ori_dataset_df.index = ori_dataset_df['prompt_id'].values
+
+    selectable_idx = gen_dataset_idx.intersection(ori_dateset_idx)
+
+    num_to_augment = int(len(selectable_idx) * (p_ori_pair + p_ori_chosen))
+    to_augment_idx = random.sample(selectable_idx, num_to_augment)
+
+    num_ori_pairs = int(num_to_augment * p_ori_pair)
+    ori_pair_idx = to_augment_idx[:num_ori_pairs]
+    ori_chosen_idx = to_augment_idx[num_ori_pairs:]
+
+    ### construct the augmented dataset
+    augmented_dataset = []
+    for sample in tqdm(gen_dataset, desc=f"Augmenting in total {num_to_augment} samples"):
+        prompt_id = sample['prompt_id']
+        if prompt_id in ori_pair_idx:
+            ori_sample = ori_dataset_df.loc[str(prompt_id)]
+            ori_sample = ori_sample.to_dict()
+            ori_sample['chosen'] = ori_sample['chosen'].tolist()
+            ori_sample['rejected'] = ori_sample['rejected'].tolist()
+            ori_sample['messages'] = ori_sample['messages'].tolist()
+            
+            ori_sample['other_info'] = sample['other_info']
+            ori_sample['gen_answers'] = sample['gen_answers']  # same format as the original dataset
+            augmented_dataset.append(ori_sample)
+        elif prompt_id in ori_chosen_idx:
+            ori_sample = ori_dataset_df.loc[str(prompt_id)]
+            ori_sample = ori_sample.to_dict()
+
+            ori_chosen = ori_sample['chosen'].tolist()
+            sample['chosen'] = ori_chosen
+            augmented_dataset.append(sample)
+        else:
+            augmented_dataset.append(sample)
+
+    augmented_dataset = Dataset.from_list(augmented_dataset)
+    return augmented_dataset
+
+
 def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericArgs):
     print(f"Generating answers using {gen_args.model_id} on {args.prompt_dataset=}; {args.prompt_dataset_split=}.")
 
@@ -317,6 +363,7 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
     if args.max_samples > 0:
         dataset = dataset.shuffle(seed=42)
         dataset = dataset.select(range(args.max_samples))
+    ori_dataset = dataset
 
     ## generate everything first, then evaluate
     ## loop of gen + evaluate sometimes hangs for unknown reasons at the THIRD run
@@ -324,12 +371,24 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
     if args.judge_only:
         print(f'Judging only... Loading gen dataset from {gen_save_path}')
         dataset = Dataset.load_from_disk(gen_save_path)
+        ori_dataset = dataset
     else:
+        ### skip if already generated
+        existing_dset = None
+        if os.path.exists(gen_save_path):
+            existing_dset = Dataset.load_from_disk(gen_save_path)
+            num_to_skip = len(existing_dset)
+            print(f"Found {num_to_skip} samples at {gen_save_path}. Skipping them for generation")
+            dataset = dataset.select(range(num_to_skip, len(dataset)))
+
+            # save it to backup as this directory will be overwritten
+            existing_dset.save_to_disk(f"{gen_save_path}_backup")
+
         sglang_ports = gen_args.sglang_ports[0].split(',')
         sglang_pids = get_pids_from_sglang(sglang_ports)
 
         if len(sglang_ports) != accelerator.num_processes:
-            raise ValueError("Number of ports and processes do not match.")
+            raise ValueError(f"Number of ports ({len(sglang_ports)}) and processes ({accelerator.num_processes}) do not match.")
 
         with accelerator.split_between_processes(list(range(len(dataset)))) as sub_dataset_idx:
             sub_dataset = dataset.select(sub_dataset_idx)
@@ -344,13 +403,16 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
             sub_dataset = gen_api_answer(gen_args_cloned, sub_dataset, gen_save_path)
             # kill sglang
             time.sleep(5)
-            os.killpg(os.getpgid(int(pid)), signal.SIGTERM)
+            # os.killpg(os.getpgid(int(pid)), signal.SIGTERM)  # TODO: uncomment this
 
             sub_dataset = [sub_dataset]
         
         # concatenate
         gathered_dataset = gather_object(sub_dataset)
         dataset = concatenate_datasets(gathered_dataset)
+        if existing_dset is not None:
+            dataset = concatenate_datasets([existing_dset, dataset])
+        
         if accelerator.is_main_process:
             # save this temporary dataset
             print(f"Saving gen dataset to {gen_save_path}")
@@ -380,6 +442,18 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
     if accelerator.is_main_process:
         print(f"Saving dataset to {judge_save_path}")
         dataset.save_to_disk(judge_save_path)
+
+        ### dataset mixture saving
+        if args.p_ori_pair > 0 or args.p_ori_chosen > 0:
+            mixture_save_path = f"data/lion-dpo-online/{args.dset_save_name}/train_mix"
+            mixture_dataset = mix_dataset(
+                dataset,
+                ori_dataset,
+                p_ori_pair=args.p_ori_pair,
+                p_ori_chosen=args.p_ori_chosen
+            )
+            print(f"Saving mixture dataset to {mixture_save_path}")
+            mixture_dataset.save_to_disk(mixture_save_path)
     accelerator.wait_for_everyone()
     return
 

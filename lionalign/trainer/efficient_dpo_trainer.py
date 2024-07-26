@@ -554,7 +554,8 @@ class EfficientDPOTrainer(Trainer):
         # prepare dataloader
         data_loader = self.accelerator.prepare(DataLoader(dataset, **dataloader_params))
         # manually move model to device as sometimes accelerator might not initialize this properly
-        if self.accelerator.state.deepspeed_plugin.deepspeed_config['zero_optimization']['stage'] == 3:
+        if (self.accelerator.state.deepspeed_plugin is not None and 
+                self.accelerator.state.deepspeed_plugin.deepspeed_config['zero_optimization']['stage'] == 3):
             print('Detected zero 3 optimization')
             self.model = Accelerator().prepare(self.model)
         else:
