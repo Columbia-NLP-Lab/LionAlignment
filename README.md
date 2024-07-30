@@ -48,7 +48,7 @@ We fine-tuned the base Gemma-2b and LLaMA-3-8b models. We released all our model
 
 ## 📦 Installation
 
-To install the required dependencies, run:
+We recommend using Python 3.10 as the environment. To install the required dependencies, run:
 
 ```sh
 pip install -r requirements.txt
@@ -66,6 +66,9 @@ Training requires (at most) 4xA100 80GB GPUs. Please adjust the batch size and g
 
 
 ### Stage 1: SFT
+
+
+For training LLaMA-3-8b,
 
 ```
 ACCELERATE_LOG_LEVEL=info accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml scripts/run_sft.py configs/llama-3-8b/sft/LION-LLaMA-3-8b-sft-v1.0.yaml

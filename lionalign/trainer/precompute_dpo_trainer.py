@@ -546,54 +546,45 @@ class PrecomputeDPOTrainer(Trainer):
         del self._stored_metrics[train_eval]
         return super().log(logs)
 
-    def create_optimizer(self):
-        """
-        Setup the optimizer.
-
-        We provide a reasonable default that works well. If you want to use something else, you can pass a tuple in the
-        Trainer's init through `optimizers`, or subclass and override this method in a subclass.
-        """
-        opt_model = self.model_wrapped if is_sagemaker_mp_enabled() else self.model
-
-        if self.optimizer is None:
-            optimizer_grouped_parameters = [
-                {
-                    "params": [p for n, p in opt_model.named_parameters() if p.requires_grad],
-                    "weight_decay": 0.0,
-                },
-            ]
-
-            optimizer_cls, optimizer_kwargs = Trainer.get_optimizer_cls_and_kwargs(self.args, opt_model)
-
-            # Overwrite `params` in case it's created by `get_optimizer_cls_and_kwargs`
-            # e.g. for GaLore optimizer.
-            if "params" in optimizer_kwargs:
-                optimizer_grouped_parameters = optimizer_kwargs.pop("params")
-
-            # For layer-wise dummy optimizers we overwrite optimizer_grouped_parameters with `optimizer_dict`
-            # to avoid arguments conflicts.
-            if "optimizer_dict" in optimizer_kwargs:
-                optimizer_grouped_parameters = optimizer_kwargs.pop("optimizer_dict")
-
-            self.optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
-            if optimizer_cls.__name__ == "Adam8bit":
-                import bitsandbytes
-
-                manager = bitsandbytes.optim.GlobalOptimManager.get_instance()
-
-                skipped = 0
-                for module in opt_model.modules():
-                    if isinstance(module, nn.Embedding):
-                        skipped += sum({p.data_ptr(): p.numel() for p in module.parameters()}.values())
-                        logger.info(f"skipped {module}: {skipped/2**20}M params")
-                        manager.register_module_override(module, "weight", {"optim_bits": 32})
-                        logger.debug(f"bitsandbytes: will optimize {module} in fp32")
-                logger.info(f"skipped: {skipped/2**20}M params")
-
-        if is_sagemaker_mp_enabled():
-            self.optimizer = smp.DistributedOptimizer(self.optimizer)
-
-        return self.optimizer
-
     def _remove_unused_columns(self, dataset: "datasets.Dataset", description: Optional[str] = None):
         return dataset
+    
+    def prediction_step(
+        self,
+        model: Union[PreTrainedModel, nn.Module],
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[List[str]] = None,
+    ):
+        if not self.use_dpo_data_collator:
+            warnings.warn(
+                "prediction_step is only implemented for DPODataCollatorWithPadding, and you passed a datacollator that is different than "
+                "DPODataCollatorWithPadding - you might see unexpected behavior. Alternatively, you can implement your own prediction_step method if you are using a custom data collator"
+            )
+        if ignore_keys is None:
+            if hasattr(model, "config"):
+                ignore_keys = getattr(model.config, "keys_to_ignore_at_inference", [])
+            else:
+                ignore_keys = []
+
+        prediction_context_manager = torch.cuda.amp.autocast if self._peft_has_been_casted_to_bf16 else nullcontext
+
+        with torch.no_grad(), prediction_context_manager():
+            loss, metrics = self.get_batch_loss_metrics(model, inputs, train_eval="eval")
+
+        # force log the metrics
+        self.store_metrics(metrics, train_eval="eval")
+
+        if prediction_loss_only:
+            return (loss.detach(), None, None)
+
+        # logits for the chosen and rejected samples from model
+        logits_dict = {
+            "eval_logits/chosen": metrics["eval_logits/chosen"],
+            "eval_logits/rejected": metrics["eval_logits/rejected"],
+        }
+        logits = tuple(v.unsqueeze(dim=0) for k, v in logits_dict.items() if k not in ignore_keys)
+        logits = torch.stack(logits).mean(axis=1).to(self.accelerator.device)
+        labels = torch.zeros(logits.shape[0], device=self.accelerator.device)
+
+        return (loss.detach(), logits, labels)

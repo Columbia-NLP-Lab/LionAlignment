@@ -22,7 +22,12 @@ from lionalign.data.utils import get_datasets
 from lionalign.data.dpo_data_processor import DPODatasetProcessor
 from lionalign.fastmodels.llama.modeling_llama import LlamaForCausalLM
 
-from lionalign.arguments import H4ArgumentParser, ModelArguments, DataArguments
+from lionalign.arguments import (
+    H4ArgumentParser,
+    ModelArguments,
+    DataArguments,
+    LoggingArguments,
+)
 from lionalign.trainer.sft_trainer import SFTTrainer
 from lionalign.trainer.sft_config import SFTConfig
 from lionalign.data.sft_data_processor import SFTDatasetProcessor
@@ -158,30 +163,12 @@ def concatenated_forward(model, batch):
     return (chosen_logps, rejected_logps, chosen_logits, rejected_logits)
 
 
-# @dataclass
-# class PrecomputeDPOConfig(DPOConfig):
-#     world_size: int = 4
-#     rank: int = 0
-#     save_name = "data"
-
-
-def main():
-    parser = H4ArgumentParser((ModelArguments, DataArguments, DPOConfig))
-    model_args, data_args, training_args = parser.parse()
-
-    #####################################
-    # Load tokenizer and process datasets
-    #####################################
-    tokenizer = get_tokenizer(model_args, data_args)
-
-    data_processor = DPODatasetProcessor(
-        tokenizer=tokenizer,
-        max_length=training_args.max_length,
-        max_prompt_length=training_args.max_prompt_length,
-        num_proc=data_args.preprocessing_num_workers,
-        pad_to_multiple=1,
-        use_fast_model=training_args.use_fast_model,
-    )
+def load_and_process_dpo_dataset(
+    model_args, data_args, training_args, tokenizer, data_processor, eval=False
+):
+    mixer = data_args.eval_dataset_mixer if eval else data_args.train_dataset_mixer
+    split = data_args.eval_dataset_splits if eval else data_args.train_dataset_splits
+    shuffle = False if eval else training_args.shuffle_train_dataloader
 
     def process_chat_template(datasets):
         remove_column_names = list(datasets.features)
@@ -204,100 +191,132 @@ def main():
         datasets = data_processor(datasets)
         return datasets
 
+    # compute the hash of the train dataset
+    dataset_cache_hash = get_dataset_cache_hash(
+        mixer,
+        split,
+        tokenizer.chat_template,
+        data_args.auto_insert_empty_system_msg,
+        shuffle,
+        training_args.seed,
+        model_name_or_path=model_args.model_name_or_path,
+    )
+    dataset_cache_path = os.path.join(
+        training_args.dataset_cache_dir, dataset_cache_hash
+    )
+
+    # Load train dataset from cache if it exists
+    if os.path.exists(dataset_cache_path):
+        logger.info(f"Loading dataset from cache {dataset_cache_path}")
+        output_dataset = datasets.load_from_disk(dataset_cache_path)
+    else:
+        output_dataset = get_datasets(
+            mixer,
+            split,
+            dedup_key="chosen",  # we use the chosen message as dedup key
+            columns_to_keep=[
+                "messages",
+                "chosen",
+                "rejected",
+                "prompt",
+                "completion",
+                "label",
+            ],
+            process_fn=process_chat_template,
+            num_proc=data_args.preprocessing_num_workers,
+            seed=training_args.seed,
+            shuffle=shuffle,
+        )
+
+        ##########################
+        # Get dataset statistics
+        ##########################
+        if training_args.local_rank in [-1, 0]:
+            dataset_names = set(output_dataset["dataset_mix_source"])
+            dataset_numbers = {dataset_name: 0 for dataset_name in dataset_names}
+
+            for item in tqdm.tqdm(output_dataset, desc="Counting dataset examples"):
+                dataset_numbers[item["dataset_mix_source"]] += 1
+
+            # print percentage of different sources and number of examples
+            total = len(output_dataset)
+            dataset_ratio = {
+                dataset_name: dataset_numbers[dataset_name] / total
+                for dataset_name in dataset_numbers
+            }
+
+            print(f"Total number of examples: {total}")
+            for dataset_name in dataset_ratio.keys():
+                print(
+                    f"Dataset {dataset_name} has {dataset_numbers[dataset_name]} examples "
+                    f"({dataset_ratio[dataset_name]*100:.2f}%)"
+                )
+
+        output_dataset = data_processor(output_dataset)
+
+        if eval:
+            logger.info(
+                f"Eval dataset processed. Number of samples: {len(output_dataset)}"
+            )
+        else:
+            logger.info(
+                f"Training Dataset processed. Number of samples: {len(output_dataset)}"
+            )
+
+        if training_args.local_rank in [-1, 0]:
+            logger.info(f"Saving dataset to cache {dataset_cache_path}")
+            output_dataset.save_to_disk(dataset_cache_path)
+
+            # save dataset statistics
+            dataset_statistics_path = os.path.join(
+                dataset_cache_path, "dataset_statistics.json"
+            )
+            dataset_stats = {
+                "total": total,
+                "dataset_numbers": dataset_numbers,
+                "dataset_ratio": dataset_ratio,
+            }
+            with open(dataset_statistics_path, "w") as f:
+                json.dump(dataset_stats, f, indent=4)
+
+    return output_dataset, dataset_cache_path
+
+
+def main():
+    parser = H4ArgumentParser(
+        (ModelArguments, DataArguments, LoggingArguments, DPOConfig)
+    )
+    model_args, data_args, logging_args, training_args = parser.parse()
+
+    #####################################
+    # Load tokenizer and process datasets
+    #####################################
+    tokenizer = get_tokenizer(model_args, data_args)
+
+    data_processor = DPODatasetProcessor(
+        tokenizer=tokenizer,
+        max_length=training_args.max_length,
+        max_prompt_length=training_args.max_prompt_length,
+        num_proc=data_args.preprocessing_num_workers,
+        pad_to_multiple=1,
+        use_fast_model=training_args.use_fast_model,
+    )
+
     with PartialState().local_main_process_first():
         os.makedirs(training_args.dataset_cache_dir, exist_ok=True)
 
-        def load_and_process_dpo_dataset(data_args, training_args, tokenizer, eval=False):
-            mixer = data_args.eval_dataset_mixer if eval else data_args.train_dataset_mixer
-            split = data_args.eval_dataset_split if eval else data_args.train_dataset_split
-            shuffle = False if eval else training_args.shuffle_train_dataloader
-
-            # compute the hash of the train dataset
-            dataset_cache_hash = get_dataset_cache_hash(
-                mixer,
-                split,
-                tokenizer.chat_template,
-                data_args.auto_insert_empty_system_msg,
-                shuffle,
-                training_args.seed,
-            )
-            dataset_cache_path = os.path.join(
-                training_args.dataset_cache_dir, dataset_cache_hash
-            )
-                
-            # Load train dataset from cache if it exists
-            if os.path.exists(dataset_cache_path):
-                logger.info(f"Loading dataset from cache {dataset_cache_path}")
-                output_dataset = datasets.load_from_disk(dataset_cache_path)
-            else:
-                output_dataset = get_datasets(
-                    mixer,
-                    split,
-                    dedup_key="chosen",  # we use the chosen message as dedup key
-                    columns_to_keep=[
-                        "messages",
-                        "chosen",
-                        "rejected",
-                        "prompt",
-                        "completion",
-                        "label",
-                    ],
-                    process_fn=process_chat_template,
-                    num_proc=data_args.preprocessing_num_workers,
-                    seed=training_args.seed,
-                    shuffle=shuffle,
-                )
-
-                ##########################
-                # Get dataset statistics
-                ##########################
-                if training_args.local_rank in [-1, 0]:
-                    dataset_names = set(output_dataset["dataset_mix_source"])
-                    dataset_numbers = {dataset_name: 0 for dataset_name in dataset_names}
-
-                    for item in tqdm.tqdm(output_dataset, desc="Counting dataset examples"):
-                        dataset_numbers[item["dataset_mix_source"]] += 1
-
-                    # print percentage of different sources and number of examples
-                    total = len(output_dataset)
-                    dataset_ratio = {
-                        dataset_name: dataset_numbers[dataset_name] / total
-                        for dataset_name in dataset_numbers
-                    }
-
-                    print(f"Total number of examples: {total}")
-                    for dataset_name in dataset_ratio.keys():
-                        print(
-                            f"Dataset {dataset_name} has {dataset_numbers[dataset_name]} examples "
-                            f"({dataset_ratio[dataset_name]*100:.2f}%)"
-                        )
-
-                output_dataset = data_processor(output_dataset)
-                
-                if eval:
-                    logger.info(
-                        f"Eval dataset processed. Number of samples: {len(output_dataset)}"
-                    )
-                else:
-                    logger.info(
-                        f"Training Dataset processed. Number of samples: {len(output_dataset)}"
-                    )
-
-                if training_args.local_rank in [-1, 0]:
-                    logger.info(f"Saving dataset to cache {dataset_cache_path}")
-                    output_dataset.save_to_disk(dataset_cache_path)
-
-                    # save dataset statistics
-                    dataset_statistics_path = os.path.join(dataset_cache_path, "dataset_statistics.json")
-                    dataset_stats = {"total": total, "dataset_numbers": dataset_numbers, "dataset_ratio": dataset_ratio}
-                    with open(dataset_statistics_path, "w") as f:
-                        json.dump(dataset_stats, f, indent=4)
-
-            return output_dataset, dataset_cache_path
-        
-        train_dataset, train_dataset_cache_path = load_and_process_dpo_dataset(data_args, training_args, tokenizer, eval=False)
+        train_dataset, train_dataset_cache_path = load_and_process_dpo_dataset(
+            model_args, data_args, training_args, tokenizer, data_processor, eval=False
+        )
         if data_args.eval_dataset_mixer:
-            eval_dataset, eval_dataset_cache_path = load_and_process_dpo_dataset(data_args, training_args, tokenizer, eval=True)
+            eval_dataset, eval_dataset_cache_path = load_and_process_dpo_dataset(
+                model_args,
+                data_args,
+                training_args,
+                tokenizer,
+                data_processor,
+                eval=True,
+            )
         else:
             eval_dataset, eval_dataset_cache_path = None, None
 
@@ -321,7 +340,9 @@ def main():
     )
 
     if training_args.use_fast_model:
-        model_config = transformers.PretrainedConfig.from_pretrained(model_args.model_name_or_path)
+        model_config = transformers.PretrainedConfig.from_pretrained(
+            model_args.model_name_or_path
+        )
 
         if model_config.model_type == "llama":
             from lionalign.fastmodels.llama.modeling_llama import LlamaForCausalLM
@@ -357,15 +378,16 @@ def main():
     # Shard the train dataset
     world_size = training_args.world_size
     rank = training_args.local_rank if training_args.local_rank != -1 else 0
-    
-    
+
     train_dataset.name = "Train"
 
     if eval_dataset is not None:
         eval_dataset.name = "Eval"
 
-
-    for dataset, dataset_cache_path in zip([train_dataset, eval_dataset], [train_dataset_cache_path, eval_dataset_cache_path]):
+    for dataset, dataset_cache_path in zip(
+        [train_dataset, eval_dataset],
+        [train_dataset_cache_path, eval_dataset_cache_path],
+    ):
         if dataset is None:
             continue
 
@@ -404,7 +426,9 @@ def main():
             all_reference_chosen_logps.append(reference_chosen_logps.cpu())
             all_reference_rejected_logps.append(reference_rejected_logps.cpu())
 
-        all_reference_chosen_logps = torch.cat(all_reference_chosen_logps).float().numpy()
+        all_reference_chosen_logps = (
+            torch.cat(all_reference_chosen_logps).float().numpy()
+        )
         all_reference_rejected_logps = (
             torch.cat(all_reference_rejected_logps).float().numpy()
         )

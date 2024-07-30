@@ -744,7 +744,6 @@ class LlamaModel(LlamaPreTrainedModel):
 
         if concat_mode:
             # recover hidden states for batch size
-            assert hidden_states.shape[0] == 1
             hidden_states = index_put_first_axis(
                 hidden_states.squeeze(0), unpad_indices, batch_size * seqlen
             )

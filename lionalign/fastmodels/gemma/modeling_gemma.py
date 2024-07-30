@@ -310,7 +310,7 @@ class GemmaFlashAttention2(GemmaAttention):
         position_ids: torch.LongTensor,
     ) -> torch.Tensor:
         bsz, q_len, hidden_size = hidden_states.size()
-        assert bsz == 1, "Only batch size 1 is supported for Fast Training"
+        # assert bsz == 1, "Only batch size 1 is supported for Fast Training"
 
         query_states = self.q_proj(hidden_states)
         key_states = self.k_proj(hidden_states)
@@ -601,6 +601,7 @@ class GemmaModel(GemmaPreTrainedModel):
         self,
         input_ids: torch.LongTensor = None,
         attention_mask: Optional[torch.Tensor] = None,
+        cu_seqlens: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         return_dict: Optional[bool] = None,
@@ -631,9 +632,14 @@ class GemmaModel(GemmaPreTrainedModel):
                 cu_inputs_embeds = self.embed_tokens(cu_input_ids)
             else:
                 cu_inputs_embeds = inputs_embeds[attention_mask].unsqueeze(0)
-            unpad_indices, cu_seqlens, max_seqlen_in_batch = _get_unpad_data(
+
+            unpad_indices, unpad_cu_seqlens, max_seqlen_in_batch = _get_unpad_data(
                 attention_mask
             )
+
+            # if cu_seqlens is not provided, we use the attention mask to compute cu_seqlens
+            if cu_seqlens is None:
+                cu_seqlens = unpad_cu_seqlens
 
             if position_ids is None:
                 position_ids = torch.arange(0, seqlen, device=cu_inputs_embeds.device)
@@ -647,6 +653,7 @@ class GemmaModel(GemmaPreTrainedModel):
             position_ids = cu_position_ids
         else:
             batch_size, seqlen = input_ids.shape
+            max_seqlen_in_batch = seqlen
             hidden_states = self.embed_tokens(input_ids)
             position_ids = (
                 position_ids
@@ -655,6 +662,12 @@ class GemmaModel(GemmaPreTrainedModel):
                 .unsqueeze(0)
                 .expand(batch_size, seqlen)
             )
+
+            # if attention mask and cu_seqlens are not provided, we assume no padding
+            if cu_seqlens is None:
+                cu_seqlens = torch.tensor([seqlen]*batch_size, device=hidden_states.device, dtype=torch.int32)
+                cu_seqlens = torch.cumsum(cu_seqlens, dim=0)
+
 
         # normalized
         # Gemma downcasts the below to float16, causing sqrt(3072)=55.4256 to become 55.5
@@ -688,7 +701,6 @@ class GemmaModel(GemmaPreTrainedModel):
 
         if concat_mode:
             # recover hidden states for batch size
-            assert hidden_states.shape[0] == 1
             hidden_states = index_put_first_axis(
                 hidden_states.squeeze(0), unpad_indices, batch_size * seqlen
             )
@@ -738,6 +750,7 @@ class GemmaForCausalLM(GemmaPreTrainedModel):
         self,
         input_ids: torch.LongTensor = None,
         attention_mask: Optional[torch.Tensor] = None,
+        cu_seqlens: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         labels: Optional[torch.LongTensor] = None,
@@ -753,6 +766,7 @@ class GemmaForCausalLM(GemmaPreTrainedModel):
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
+            cu_seqlens=cu_seqlens,
             position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             return_dict=return_dict,

@@ -25,4 +25,5 @@ def apply_llama3_embed_grad_mask(model):
         return grad
 
     model.model.embed_tokens.weight.register_hook(llama3_embedding_backward_hook)
+    model.model.lm_head.weight.register_hook(llama3_embedding_backward_hook)
     return model

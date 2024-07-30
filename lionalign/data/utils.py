@@ -114,7 +114,7 @@ def apply_chat_template(
 
 def get_datasets(
     dataset_mixer: dict,
-    split: str = "train",
+    splits: Union[str, Dict[str, str]] = "train",
     shuffle: bool = True,
     columns_to_keep: Optional[List[str]] = None,
     dedup_key: str = "messages",
@@ -127,7 +127,7 @@ def get_datasets(
 
     Args:
         dataset_mixer (dict): A dictionary mapping dataset names to their corresponding fractions.
-        split (str, optional): The split of the dataset to retrieve. Defaults to "train".
+        splits (Union[str, Dict[str, str]], optional): The dataset splits to load. Defaults to "train".
         shuffle (bool, optional): Whether to shuffle the datasets. Defaults to True.
         columns_to_keep (List[str], optional): List of columns to keep in the datasets. Defaults to None.
         dedup_key (str, optional): The key to use for deduplication. Defaults to "messages".
@@ -148,14 +148,25 @@ def get_datasets(
     for idx, dataset_name in enumerate(
         tqdm.tqdm(all_dataset_names, desc="Loading datasets")
     ):
+        # Check if splits are provided for each dataset
+        if isinstance(splits, dict):
+            dataset_split = splits[dataset_name]
+        elif isinstance(splits, str):
+            dataset_split = splits
+        else:
+            raise ValueError(
+                f"Invalid split type {splits}. Please provide a string or dictionary."
+            )
+        
         frac = dataset_mixer[dataset_name]
         fracs.append(frac)
+
         try:
             # Try first if dataset on a Hub repo
-            dataset = load_dataset(dataset_name, split=split)
+            dataset = load_dataset(dataset_name, split=dataset_split)
         except DatasetGenerationError:
             # If not, check local dataset
-            dataset = load_from_disk(os.path.join(dataset_name, split))
+            dataset = load_from_disk(os.path.join(dataset_name, dataset_split))
 
         # Remove redundant columns to avoid schema conflicts on load
         if columns_to_keep is not None:
@@ -251,7 +262,7 @@ def get_datasets(
 
     if len(final_datasets) == 0:
         raise ValueError(
-            f"Dataset {dataset_mixer} not recognized with split {split}. Check the dataset has been correctly formatted."
+            f"Dataset {dataset_mixer} not recognized with splits {splits}. Check the dataset has been correctly formatted."
         )
 
     return final_datasets
@@ -582,23 +593,20 @@ def hash_obj(obj, length=16):
     return truncated_hex_digest
 
 
-def get_dataset_cache_hash(
-    dataset_mixer,
-    dataset_split,
-    chat_template,
-    auto_insert_empty_system_msg: bool = True,
-    shuffle: bool = True,
-    seed: Optional[int] = None,
-    **kwargs,
-):
-    params = {
-        "dataset_mixer": dataset_mixer,
-        "dataset_split": dataset_split,
-        "chat_template": chat_template,
-        "auto_insert_empty_system_msg": auto_insert_empty_system_msg,
-        "shuffle": shuffle,
-        "seed": seed,
-    }
+def get_dataset_cache_hash(*args, **kwargs):
+    """
+    Calculate the hash value for caching a dataset.
+
+    Args:
+        *args: Variable length arguments.
+        **kwargs: Keyword arguments.
+
+    Returns:
+        int: The hash value for caching the dataset.
+    """
+    params = {}
+    for i, arg in enumerate(args):
+        params[f"arg_{i}"] = arg
     params.update(kwargs)
 
     return hash_obj(params)
