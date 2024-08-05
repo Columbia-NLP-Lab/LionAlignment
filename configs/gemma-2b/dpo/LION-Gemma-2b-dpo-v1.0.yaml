@@ -6,12 +6,28 @@ use_flash_attention_2: true
 
 # Data training arguments
 train_dataset_mixer:
-  Columbia-NLP/lion-dpo-mix-v0.3: 1.0
-train_dataset_splits: "train_165k"
+  Columbia-NLP/DPO-distilabel-capybara-dpo-7k-binarized: 1.0
+  Columbia-NLP/DPO-distilabel-intel-orca-dpo-pairs_cleaned: 1.0
+  Columbia-NLP/DPO-UltraFeedback_binarized: 1.0
+  Columbia-NLP/DPO-py-dpo-v0.1: 1.0
+  Columbia-NLP/DPO-tldr-summarisation-preferences: 0.1
+  Columbia-NLP/DPO-HelpSteer: 1.0
+  Columbia-NLP/DPO-PKU-SafeRLHF: 0.1
+  Columbia-NLP/DPO-Nectar: 0.25
+train_dataset_splits:
+  Columbia-NLP/DPO-distilabel-capybara-dpo-7k-binarized: "train"
+  Columbia-NLP/DPO-distilabel-intel-orca-dpo-pairs_cleaned: "train"
+  Columbia-NLP/DPO-UltraFeedback_binarized: "train_prefs"
+  Columbia-NLP/DPO-py-dpo-v0.1: "train"
+  Columbia-NLP/DPO-tldr-summarisation-preferences: "train"
+  Columbia-NLP/DPO-HelpSteer: "train"
+  Columbia-NLP/DPO-PKU-SafeRLHF: "train"
+  Columbia-NLP/DPO-Nectar: "train"
 
 eval_dataset_mixer:
-  Columbia-NLP/lion-dpo-mix-v0.3: 1.0
-eval_dataset_splits: "test"
+  Columbia-NLP/DPO-UltraFeedback_binarized: 1.0
+eval_dataset_splits:
+  Columbia-NLP/DPO-UltraFeedback_binarized: "test_prefs"
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true
