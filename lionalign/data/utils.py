@@ -161,12 +161,16 @@ def get_datasets(
         frac = dataset_mixer[dataset_name]
         fracs.append(frac)
 
-        try:
-            # Try first if dataset on a Hub repo
-            dataset = load_dataset(dataset_name, split=dataset_split)
-        except DatasetGenerationError:
-            # If not, check local dataset
+        if dataset_name.startswith("data/") or dataset_name.startswith("dataset/"):
+            # local dataset
             dataset = load_from_disk(os.path.join(dataset_name, dataset_split))
+        else:
+            try:
+                # Try first if dataset on a Hub repo
+                dataset = load_dataset(dataset_name, split=dataset_split)
+            except DatasetGenerationError:
+                # If not, check local dataset
+                dataset = load_from_disk(os.path.join(dataset_name, dataset_split))
 
         # Remove redundant columns to avoid schema conflicts on load
         if columns_to_keep is not None:

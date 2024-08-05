@@ -183,7 +183,7 @@ def main(gen_args: AlpacaEvalGenArgs, judge_args: AlpacaEvalJudgeArgs, args: Gen
     # this can either be the base_dir itself, or be base_dir/checkpoint-xxx
     for model_path_found, suffix in find_checkpoint_paths(base_model_path):
         print(f"Model weights found at {model_path_found}. Using model_id={base_model_id}{suffix}.")
-        gen_args.model_path = model_path_found
+        gen_args.model_path = str(model_path_found)
         gen_args.model_id = f'{base_model_id}{suffix}'
         if base_judged_model_name == '':
             judge_args.name = f'{base_model_id}{suffix}'

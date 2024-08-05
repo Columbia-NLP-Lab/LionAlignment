@@ -25,8 +25,6 @@ scripts/gen_preference_pairs.py \
 --prompt_dataset=Columbia-NLP/DPO-UltraFeedback_binarized \
 --prompt_dataset_split=train_prefs \
 --max_samples=-1 \
---p_ori_pair=0.15 \
---p_ori_chosen=0.35 \
 --n_to_rank=5 \
 --gen_temperature=0.8 \
 --gen_parallel=16 \
@@ -38,64 +36,52 @@ scripts/gen_preference_pairs.py \
 ### train after generation
 
 SAVE_DIR=model_checkpoints_coffee/reprod/LION-Gemma-2b-odpo-v1.0
-LOGP_TRAIN_FILE=data/precompute/lion-dpo-online/LION-Gemma-2b-dpo-v1.0-UltraFeedback-odpo-train-mixed-full.csv
-LOGP_TEST_FILE=data/precompute/lion-dpo-online/LION-Gemma-2b-dpo-v1.0-UltraFeedback-test.csv
-CONFIG_FILE=configs/gemma-2b/dpo/LION-Gemma-2b-dpo-v1.0.yaml
+CONFIG_FILE=configs/gemma-2b/odpo/LION-Gemma-2b-odpo-v1.0.yaml
 
 TRAIN_GPU_IDX=4,5,6,7
 NUM_GPUS=4
-MAIN_PORT=29597
+PORT=29597
 
+TRAIN_SPLITS=$(cat << EOM
+{ 
+  "Columbia-NLP/DPO-Nectar": "train", 
+  "data/lion-dpo-online/UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo": "train"
+}
+EOM
+)
+TRAIN_MIXER=$(cat << EOM
+{ 
+  "Columbia-NLP/DPO-Nectar": 0.3,
+  "data/lion-dpo-online/UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo": 0.1
+}
+EOM
+)
+
+
+# 1. Get Log Probs
 CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
 --multi_gpu \
---config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml \
---main_process_port=${MAIN_PORT} \
 --num_processes=${NUM_GPUS} \
-scripts/run_dpo_xy.py ${CONFIG_FILE} \
---model_name_or_path=Columbia-NLP/LION-Gemma-2b-dpo-v1.0 \
---ref_model_name_or_path=Columbia-NLP/LION-Gemma-2b-dpo-v1.0 \
---precompute_train_ref_file_path=${LOGP_TRAIN_FILE} \
---precompute_test_ref_file_path=${LOGP_TEST_FILE} \
---dataset_splits='{"Columbia-NLP/lion-dpo-mix-v0.3": ["train_165k", "test"], "data/lion-dpo-online/UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo": ["train_mix"]}' \
---dataset_mixer='{"Columbia-NLP/lion-dpo-mix-v0.3": 0.3, "data/lion-dpo-online/UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo": 0.1}' \
+--main_process_port=${PORT} \
+scripts/precompute_dpo_logprobs.py ${CONFIG_FILE} \
+--train_dataset_splits="${TRAIN_SPLITS}" \
+--train_dataset_mixer="${TRAIN_MIXER}" \
+--eval_dataset_splits='{"Columbia-NLP/DPO-UltraFeedback_binarized": "test_prefs"}' \
+--eval_dataset_mixer='{"Columbia-NLP/DPO-UltraFeedback_binarized": 1.0}'
+
+
+# 2. Train with DPO
+CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
+--multi_gpu \
+--config_file configs/accelerate_configs/deepspeed_zero1_4gpu.yaml \
+--main_process_port=${PORT} \
+scripts/run_precompute_dpo.py ${CONFIG_FILE} \
+--train_dataset_splits="${TRAIN_SPLITS}" \
+--train_dataset_mixer="${TRAIN_MIXER}" \
+--eval_dataset_splits='{"Columbia-NLP/DPO-UltraFeedback_binarized": "test_prefs"}' \
+--eval_dataset_mixer='{"Columbia-NLP/DPO-UltraFeedback_binarized": 1.0}' \
 --output_dir=${SAVE_DIR} \
---max_data_size=-1 \
---ref_update_steps=-1 \
 --do_eval=true \
 --evaluation_strategy=epoch \
---max_length=2048 \
---beta=0.05 \
---num_train_epochs=1 \
---per_device_train_batch_size=1 \
---per_device_eval_batch_size=1 \
---gradient_accumulation_steps=8 \
---wandb_group=lion-gemma-v1.0 \
---wandb_project=when2rl \
 --save_strategy=no \
---save_total_limit=-1
-
-
-### eval
-source ../when2rl/.env
-
-MODEL_NAME_OR_PATH=${SAVE_DIR}
-MODEL_NAME=LION-Gemma-2b-odpo-v1.0
-MT_JUDGE_MODEL=gpt-4
-AHA_JUDGE_MODEL=gpt-4-1106-preview
-AHA_BASELINE_MODEL=gpt-4-0314
-EVAL_GPU_IDX=7
-CHAT_TEMPLATE=configs/chat_templates/lion-gemma-2b.json
-
-CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} python test/run_alpaca_eval.py \
---model_path=${MODEL_NAME_OR_PATH} \
---tokenizer_path=${MODEL_NAME_OR_PATH} \
---chat_template=${CHAT_TEMPLATE} \
---model_id=${MODEL_NAME} \
---gen_temperature=0.7 \
---use_sglang \
---gen_parallel=8 \
---judge_only=false \
---judge_parallel=8 \
---to_wandb=true \
---result_save_path=data/alpaca_eval_results/${MODEL_NAME} \
---num_runs=1
+--wandb_group=lion-gemma-v1.0

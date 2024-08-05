@@ -1,4 +1,5 @@
 data
+dataset_cache
 model_checkpoints*
 !lionllm/data
 # Byte-compiled / optimized / DLL files

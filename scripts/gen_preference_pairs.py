@@ -180,7 +180,7 @@ def gen_api_answer(gen_args: DPODataGenArgs, dataset: Dataset, gen_save_path: st
             future.result()
 
             num_completed += 1
-            if num_completed % 100 == 0:  # TODO: change this back to 1000
+            if num_completed % 2000 == 0:
                 print(f"Completed {num_completed} samples.")
                 # flush
                 new_dataset_ = [Dataset.from_list(RESULT_LIST)]
@@ -191,11 +191,11 @@ def gen_api_answer(gen_args: DPODataGenArgs, dataset: Dataset, gen_save_path: st
                 
                 accelerator.wait_for_everyone()
 
-                del new_dataset_
-                del gathered_dataset
-                del new_dataset
-                torch.cuda.empty_cache()
-                gc.collect()
+                # del new_dataset_
+                # del gathered_dataset
+                # del new_dataset
+                # torch.cuda.empty_cache()
+                # gc.collect()
     new_dataset = Dataset.from_list(RESULT_LIST)
     return new_dataset
 
@@ -251,7 +251,7 @@ def gen_judgment(judge_args: DPODataJudgeArgs, dataset: Dataset, judge_save_path
 
     all_inputs, all_candidates_texts = format_ranking_dset(dataset)
 
-    flush_size = 512
+    flush_size = 2000
     inputs_batched = list_generator(all_inputs, batch_size=flush_size)
     candidates_batched = list_generator(all_candidates_texts, batch_size=flush_size)
     dataset_batched = list_generator(dataset, batch_size=flush_size)
@@ -371,18 +371,15 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
     if args.judge_only:
         print(f'Judging only... Loading gen dataset from {gen_save_path}')
         dataset = Dataset.load_from_disk(gen_save_path)
-        ori_dataset = dataset
     else:
         ### skip if already generated
         existing_dset = None
-        if os.path.exists(gen_save_path):
-            existing_dset = Dataset.load_from_disk(gen_save_path)
+        gen_backup_path = f"{gen_save_path}_backup"
+        if os.path.exists(gen_backup_path):
+            existing_dset = Dataset.load_from_disk(gen_backup_path)
             num_to_skip = len(existing_dset)
-            print(f"Found {num_to_skip} samples at {gen_save_path}. Skipping them for generation")
+            print(f"Found {num_to_skip} samples at {gen_backup_path}. Skipping them for generation")
             dataset = dataset.select(range(num_to_skip, len(dataset)))
-
-            # save it to backup as this directory will be overwritten
-            existing_dset.save_to_disk(f"{gen_save_path}_backup")
 
         sglang_ports = gen_args.sglang_ports[0].split(',')
         sglang_pids = get_pids_from_sglang(sglang_ports)
@@ -400,10 +397,10 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
             gen_args_cloned = deepcopy(gen_args)
             gen_args_cloned.openai_api_base = api_base
 
-            sub_dataset = gen_api_answer(gen_args_cloned, sub_dataset, gen_save_path)
+            sub_dataset = gen_api_answer(gen_args_cloned, sub_dataset, gen_backup_path)
             # kill sglang
             time.sleep(5)
-            # os.killpg(os.getpgid(int(pid)), signal.SIGTERM)  # TODO: uncomment this
+            os.killpg(os.getpgid(int(pid)), signal.SIGTERM)  # TODO: uncomment this
 
             sub_dataset = [sub_dataset]
         

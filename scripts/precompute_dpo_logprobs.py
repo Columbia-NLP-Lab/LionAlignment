@@ -43,8 +43,8 @@ from typing import Dict, List, Optional, Tuple, Union
 from collections import defaultdict
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
+from lionalign.trainer.utils import move_to_device
 
-from lionllm.trainer.utils import move_to_device
 
 logger = logging.getLogger(__name__)
 
@@ -410,7 +410,7 @@ def main():
         all_reference_chosen_logps = []
         all_reference_rejected_logps = []
         for padded_batch in tqdm.tqdm(
-            iterable=dataloader, desc=f"Calculating dataset reference log probs"
+            iterable=dataloader, desc=f"Calculating dataset reference log probs with {model_args.model_name_or_path}"
         ):
             padded_batch = move_to_device(padded_batch, training_args.device)
 

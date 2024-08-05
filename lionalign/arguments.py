@@ -229,23 +229,23 @@ class DataArguments:
     chat_template: Optional[str] = field(
         default=None, metadata={"help": "The chat template to use."}
     )
-    train_dataset_mixer: Optional[Dict[str, float]] = field(
+    train_dataset_mixer: Dict[str, float] = field(
         default=None,
         metadata={
             "help": ("Datasets and their proportions to be used for training ift/rl.")
         },
     )
-    train_dataset_splits: Optional[str] = field(
+    train_dataset_splits: Union[str, Dict[str, str]] = field(
         default_factory=lambda: "train",
         metadata={"help": ("The dataset split to use for training ift/rl.")},
     )
-    eval_dataset_mixer: Optional[Dict[str, float]] = field(
+    eval_dataset_mixer: Dict[str, float] = field(
         default=None,
         metadata={
             "help": ("Datasets and their proportions to be used for evaluation ift/rl.")
         },
     )
-    eval_dataset_splits: Optional[str] = field(
+    eval_dataset_splits: Union[str, Dict[str, str]] = field(
         default_factory=lambda: "validation",
         metadata={"help": ("The dataset split to use for evaluation ift/rl.")},
     )
