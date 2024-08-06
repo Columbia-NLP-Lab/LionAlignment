@@ -1,9 +1,9 @@
 #### this script requires sglang or vllm servers for inference
 #### as an example, run separately:
 #### CUDA_VISIBLE_DEVICES={x} python -m sglang.launch_server \
-#### --model-path Columbia-NLP/LION-Gemma-2b-dpo-v1.0 \
+#### --model-path Columbia-NLP/LION-LLaMA-3-8b-dpo-v1.0 \
 #### --enable-flashinfer --attention-reduce-in-fp32 \
-#### --chat-template configs/chat_templates/lion-gemma-2b.json \
+#### --tokenizer-path Columbia-NLP/LION-LLaMA-3-8b-dpo-v1.0 \
 #### --port {61304, 61305, 61306, 61307}
 #### note that these sglang processes WILL be terminated by the scripts/gen_preference_pairs.py at the end
 export PYTHONPATH=$(pwd)
@@ -19,8 +19,8 @@ CUDA_VISIBLE_DEVICES=${EVAL_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch
 --num_processes=${NUM_GPUS} \
 --main_process_port=${PORT} \
 scripts/gen_preference_pairs.py \
---model_path=Columbia-NLP/LION-Gemma-2b-dpo-v1.0 \
---model_id=Columbia-NLP_LION-Gemma-2b-dpo-v1.0 \
+--model_path=Columbia-NLP/LION-LLaMA-3-8b-dpo-v1.0 \
+--model_id=Columbia-NLP_LION-LLaMA-3-8b-dpo-v1.0 \
 --sglang_ports='61304,61305,61306,61307' \
 --prompt_dataset=Columbia-NLP/DPO-UltraFeedback_binarized \
 --prompt_dataset_split=train_prefs \
@@ -30,32 +30,17 @@ scripts/gen_preference_pairs.py \
 --gen_parallel=16 \
 --judge_only=false \
 --judge_batch_size=8 \
---dset_save_name=UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo
+--dset_save_name=UltraFeedback-LION-LLaMA-3-8b-dpo-v1.0-to-odpo
 
 
 ### train after generation
 
-SAVE_DIR=model_checkpoints/LION-Gemma-2b-odpo-v1.0
-CONFIG_FILE=configs/gemma-2b/odpo/LION-Gemma-2b-odpo-v1.0.yaml
+SAVE_DIR=model_checkpoints/reprod/LION-LLaMA-3-8b-odpo-v1.0
+CONFIG_FILE=configs/llama-3-8b/odpo/LION-LLaMA-3-8b-odpo-v1.0.yaml
 
 TRAIN_GPU_IDX=4,5,6,7
 NUM_GPUS=4
 PORT=29597
-
-TRAIN_SPLITS=$(cat << EOM
-{ 
-  "Columbia-NLP/DPO-Nectar": "train", 
-  "data/lion-dpo-online/UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo": "train"
-}
-EOM
-)
-TRAIN_MIXER=$(cat << EOM
-{ 
-  "Columbia-NLP/DPO-Nectar": 0.3,
-  "data/lion-dpo-online/UltraFeedback-LION-Gemma-2b-dpo-v1.0-to-odpo": 0.1
-}
-EOM
-)
 
 
 # 1. Get Log Probs
@@ -64,24 +49,24 @@ CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launc
 --num_processes=${NUM_GPUS} \
 --main_process_port=${PORT} \
 scripts/precompute_dpo_logprobs.py ${CONFIG_FILE} \
---train_dataset_splits="${TRAIN_SPLITS}" \
---train_dataset_mixer="${TRAIN_MIXER}" \
+--train_dataset_splits='{"data/lion-dpo-online/UltraFeedback-LION-LLaMA-3-8b-dpo-v1.0-to-odpo": "train"}' \
+--train_dataset_mixer='{"data/lion-dpo-online/UltraFeedback-LION-LLaMA-3-8b-dpo-v1.0-to-odpo": 1.0}' \
 --eval_dataset_splits='{"Columbia-NLP/DPO-UltraFeedback_binarized": "test_prefs"}' \
 --eval_dataset_mixer='{"Columbia-NLP/DPO-UltraFeedback_binarized": 1.0}'
 
 
 # 2. Train with DPO
 CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
---config_file configs/accelerate_configs/deepspeed_zero1_4gpu.yaml \
+--config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml \
 --main_process_port=${PORT} \
 --num_processes=${NUM_GPUS} \
 scripts/run_precompute_dpo.py ${CONFIG_FILE} \
---train_dataset_splits="${TRAIN_SPLITS}" \
---train_dataset_mixer="${TRAIN_MIXER}" \
+--train_dataset_splits='{"data/lion-dpo-online/UltraFeedback-LION-LLaMA-3-8b-dpo-v1.0-to-odpo": "train"}' \
+--train_dataset_mixer='{"data/lion-dpo-online/UltraFeedback-LION-LLaMA-3-8b-dpo-v1.0-to-odpo": 1.0}' \
 --eval_dataset_splits='{"Columbia-NLP/DPO-UltraFeedback_binarized": "test_prefs"}' \
 --eval_dataset_mixer='{"Columbia-NLP/DPO-UltraFeedback_binarized": 1.0}' \
 --output_dir=${SAVE_DIR} \
 --do_eval=true \
 --evaluation_strategy=epoch \
 --save_strategy=no \
---wandb_group=lion-gemma-v1.0
+--wandb_group=lion-llama-v1.0

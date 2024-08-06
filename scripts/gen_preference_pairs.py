@@ -400,7 +400,7 @@ def main(gen_args: DPODataGenArgs, judge_args: DPODataJudgeArgs, args: GenericAr
             sub_dataset = gen_api_answer(gen_args_cloned, sub_dataset, gen_backup_path)
             # kill sglang
             time.sleep(5)
-            os.killpg(os.getpgid(int(pid)), signal.SIGTERM)  # TODO: uncomment this
+            os.killpg(os.getpgid(int(pid)), signal.SIGTERM)
 
             sub_dataset = [sub_dataset]
         

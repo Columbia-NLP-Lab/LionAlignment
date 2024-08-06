@@ -88,17 +88,12 @@ ACCELERATE_LOG_LEVEL=info accelerate launch --config_file configs/accelerate_con
 
 ### Stage 3: Online DPO
 
-Online DPO is split into two parts:
+Online DPO is split into two parts: 1) generate online preference data and 2) train the model with online preference data. As an example, you can train LION-LLaMA-3-8b-odpo-v1.0 with the following script:
 
-#### Generate data
 ```sh
-# Add the script to generate data
+./examples/llama-3/odpo.sh
 ```
 
-#### Training
-```sh
-# Add the script for online DPO training
-```
 
 ## 📋 Evaluation
 
