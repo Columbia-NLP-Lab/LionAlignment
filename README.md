@@ -68,27 +68,25 @@ Training requires (at most) 4xA100 80GB GPUs. Please adjust the batch size and g
 ### Stage 1: SFT
 
 
-For training LLaMA-3-8b,
+For SFT training, refer to the following script for an example of training LION-LLaMA-3-8b-sft-v1.0:
 
-```
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml scripts/run_sft.py configs/llama-3-8b/sft/LION-LLaMA-3-8b-sft-v1.0.yaml
+```sh
+./examples/llama-3/sft.sh
 ```
 
 ### Stage 2: DPO
 
-For DPO training, you need to first pre-compute the logits and save it for further training. Here, you can customize 
-```sh
-ACCELERATE_LOG_LEVEL=info accelerate launch --num_processes=4 scripts/run_dpo_precompute.py configs/llama-3-8b/dpo/LION-LLaMA-3-8b-dpo-v1.0.yaml
-```
+To speed up DPO training, we 1) pre-compute the reference logits and 2) run DPO trainer **without** initializing any reference model. We find this to reduce both the training time and memory usage!
 
-Then, start the full DPO training process.
+As an example of training LION-LLaMA-3-8b-dpo-v1.0, you can use the following scripts:
+
 ```sh
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml scripts/run_dpo.py configs/llama-3-8b/dpo/LION-LLaMA-3-8b-dpo-v1.0.yaml
+./examples/llama-3/dpo.sh
 ```
 
 ### Stage 3: Online DPO
 
-Online DPO is split into two parts: 1) generate online preference data and 2) train the model with online preference data. As an example, you can train LION-LLaMA-3-8b-odpo-v1.0 with the following script:
+Online DPO is split into two parts: 1) generate online preference data and 2) train the model with DPO using the online data. As an example, you can train LION-LLaMA-3-8b-odpo-v1.0 with the following script:
 
 ```sh
 ./examples/llama-3/odpo.sh

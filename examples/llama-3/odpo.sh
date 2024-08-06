@@ -44,6 +44,7 @@ PORT=29597
 
 
 # 1. Get Log Probs
+# remove --multi_gpu if error occurs
 CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
 --multi_gpu \
 --num_processes=${NUM_GPUS} \

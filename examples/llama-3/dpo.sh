@@ -1,0 +1,25 @@
+export PYTHONPATH=$(pwd)
+
+SAVE_DIR=model_checkpoints/reprod/LION-Gemma-3-8b-dpo-v1.0
+CONFIG_FILE=configs/llama-3-8b/dpo/LION-LLaMA-3-8b-dpo-v1.0.yaml
+
+TRAIN_GPU_IDX=0,1,2,3
+NUM_GPUS=4
+PORT=29556
+
+# 1. Get Log Probs
+# remove --multi_gpu if error occurs
+CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
+--multi_gpu \
+--num_processes=${NUM_GPUS} \
+--main_process_port=${PORT} \
+scripts/run_dpo_precompute.py ${CONFIG_FILE}
+
+
+# 2. Train with DPO
+CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launch \
+--num_processes=${NUM_GPUS} \
+--main_process_port=${PORT} \
+--config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml \
+scripts/run_dpo.py ${CONFIG_FILE} \
+--output_dir=${SAVE_DIR}

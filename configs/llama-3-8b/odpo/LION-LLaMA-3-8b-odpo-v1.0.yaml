@@ -5,13 +5,14 @@ torch_dtype: "bfloat16"
 use_flash_attention_2: true
 
 # Data training arguments
+# will be overwritten with online data in the example/*/odpo.sh scripts
 train_dataset_mixer:
-  Columbia-NLP/lion-dpo-mix-v0.3: 1.0
-train_dataset_splits: "train_165k"
+  Columbia-NLP/DPO-UltraFeedback_binarized: 1.0
+train_dataset_splits: "train_prefs"
 
 eval_dataset_mixer:
-  Columbia-NLP/lion-dpo-mix-v0.3: 1.0
-eval_dataset_splits: "test"
+  Columbia-NLP/DPO-UltraFeedback_binarized: 1.0
+eval_dataset_splits: "test_prefs"
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true

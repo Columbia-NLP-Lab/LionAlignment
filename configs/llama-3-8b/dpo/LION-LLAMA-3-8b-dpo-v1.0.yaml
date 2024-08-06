@@ -3,16 +3,23 @@ model_name_or_path: model_checkpoints/LION-LLaMA-3-8b-sft-v1.0
 model_revision: main
 torch_dtype: bfloat16
 
-# Data training arguments
+# Data arguments
 train_dataset_mixer:
-  when2rl/distilabel-capybara-dpo-7k-binarized_reformatted: 1.0
-  when2rl/distilabel-intel-orca-dpo-pairs_cleaned_reformatted: 1.0
-  Columbia-NLP/UltraFeedback_binarized_cleaned_annotated: 1.0
-  when2rl/py-dpo-v0.1_reformatted: 1.0
-  when2rl/HelpSteer_reformatted: 1.0
-  when2rl/Nectar_reformatted: 1.0
-  when2rl/PKU-SafeRLHF_reformatted_filtered: 0.1  # include 10k examples to balance ratio
-train_dataset_splits: train
+  Columbia-NLP/DPO-distilabel-capybara-dpo-7k-binarized: 1.0
+  Columbia-NLP/DPO-distilabel-intel-orca-dpo-pairs_cleaned: 1.0
+  Columbia-NLP/DPO-UltraFeedback_binarized: 1.0
+  Columbia-NLP/DPO-py-dpo-v0.1: 1.0
+  Columbia-NLP/DPO-HelpSteer: 1.0
+  Columbia-NLP/DPO-Nectar: 1.0
+  Columbia-NLP/DPO-PKU-SafeRLHF: 0.1  # include 10k examples to balance ratio
+train_dataset_splits:
+  Columbia-NLP/DPO-distilabel-capybara-dpo-7k-binarized: "train"
+  Columbia-NLP/DPO-distilabel-intel-orca-dpo-pairs_cleaned: "train"
+  Columbia-NLP/DPO-UltraFeedback_binarized: "train_prefs"
+  Columbia-NLP/DPO-py-dpo-v0.1: "train"
+  Columbia-NLP/DPO-HelpSteer: "train"
+  Columbia-NLP/DPO-Nectar: "train"
+  Columbia-NLP/DPO-PKU-SafeRLHF: "train"
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true
