@@ -31,7 +31,8 @@ eval_dataset_splits:
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true
-use_fast_model: true
+use_fast_model: false
+mask_embed_grad: false
 dataset_cache_dir: "dataset_cache"
 
 # DPOTrainer arguments

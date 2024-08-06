@@ -1,5 +1,5 @@
 # Model arguments
-model_name_or_path: model_checkpoints/LION-LLaMA-3-8b-sft-v1.0
+model_name_or_path: Columbia-NLP/LION-LLaMA-3-8b-sft-v1.0
 model_revision: main
 torch_dtype: bfloat16
 
@@ -23,7 +23,8 @@ train_dataset_splits:
 
 preprocessing_num_workers: 64
 shuffle_train_dataloader: true
-use_fast_model: true
+use_fast_model: false
+mask_embed_grad: false
 dataset_cache_dir: dataset_cache
 
 # DPOTrainer arguments

@@ -21,5 +21,5 @@ CUDA_VISIBLE_DEVICES=${TRAIN_GPU_IDX} ACCELERATE_LOG_LEVEL=info accelerate launc
 --config_file configs/accelerate_configs/deepspeed_zero3_4gpu.yaml \
 --num_processes=${NUM_GPUS} \
 --main_process_port=${PORT} \
-scripts/run_precompute_dpo ${CONFIG_FILE} \
+scripts/run_precompute_dpo.py ${CONFIG_FILE} \
 --output_dir=${SAVE_DIR}
